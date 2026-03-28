@@ -14,7 +14,10 @@ function setup_git {
     repository=$(bashio::config 'repository.url')
     username=$(bashio::config 'repository.username')
     password=$(bashio::config 'repository.password')
-    commiter_mail=$(bashio::config 'repository.email')
+    commiter_mail=""
+    if bashio::config.has_value 'repository.email'; then
+        commiter_mail=$(bashio::config 'repository.email')
+    fi
     branch=$(bashio::config 'repository.branch_name')
     ssl_verify=""
     if bashio::config.has_value 'repository.ssl_verification'; then
