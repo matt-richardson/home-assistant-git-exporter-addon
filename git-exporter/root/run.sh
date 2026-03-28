@@ -63,7 +63,7 @@ print(netloc)
         if [ -z "$(ls -A "$local_repository" 2>/dev/null)" ]; then
             bashio::log.info "Cloning ${plainurl}..."
             git clone --quiet "$plainurl" "$local_repository" \
-                || { bashio::log.error "Git clone failed."; exit 1; }
+                || { bashio::log.error "Git clone failed."; notify_ha "Git clone failed. Check your repository URL and credentials."; exit 1; }
         else
             bashio::log.info "Initialising git in existing folder..."
             git -C "$local_repository" init --quiet
@@ -90,6 +90,28 @@ print(netloc)
 
     git config user.name "$username"
     git config user.email "${commiter_mail:-git.exporter@home-assistant}"
+}
+
+# ----------------------------
+# HA Notification
+# ----------------------------
+function notify_ha {
+    local message="$1"
+    local payload
+    payload=$(HA_NOTIFY_MSG="$message" python3 -c "
+import json, os
+print(json.dumps({
+    'title': 'Git Exporter failed',
+    'message': os.environ['HA_NOTIFY_MSG'],
+    'notification_id': 'git_exporter_error'
+}))
+")
+    curl -sf -X POST \
+        -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d "$payload" \
+        "http://supervisor/core/api/services/persistent_notification/create" \
+        || bashio::log.warning "Failed to send HA notification."
 }
 
 # ----------------------------
@@ -131,6 +153,7 @@ function check_secrets {
         bashio::log.error 'Check the output above to identify the offending file and pattern.'
         bashio::log.error 'To allowlist a false positive, add a regex to a .gitallowed file in the root of your config repository.'
         bashio::log.error 'To disable this check entirely, set check.enabled to false.'
+        notify_ha "Secret or sensitive pattern detected in staged files - commit aborted. Check the addon logs for details."
         exit 1
     }
 }
@@ -319,8 +342,10 @@ else
         commit_msg="${commit_msg//\{DATE\}/$(date +'%Y-%m-%d %H:%M:%S')}"
         git commit --quiet -m "$commit_msg"
         bashio::log.info "Pushing: '${commit_msg}'..."
-        git push --quiet origin "$branch" \
-            || bashio::log.warning "Push failed - check remote repository access."
+        git push --quiet origin "$branch" || {
+            bashio::log.warning "Push failed - check remote repository access."
+            notify_ha "Failed to push changes to ${branch}. Check your repository credentials or access token."
+        }
         bashio::log.info 'Done.'
     fi
 fi
