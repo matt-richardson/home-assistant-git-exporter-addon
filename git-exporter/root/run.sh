@@ -324,6 +324,12 @@ function run_if_enabled {
 bashio::log.info 'Starting export...'
 setup_git
 
+if [ -f /config/.gitignore ] && [ ! -f "${local_repository}/config/.gitignore" ]; then
+    bashio::log.info "Copying .gitignore to repository before first export..."
+    mkdir -p "${local_repository}/config"
+    cp /config/.gitignore "${local_repository}/config/.gitignore"
+fi
+
 export_ha_config
 run_if_enabled "Lovelace"      'export.lovelace'      export_lovelace
 run_if_enabled "ESPHome"       'export.esphome'       '/config/esphome'  export_esphome
