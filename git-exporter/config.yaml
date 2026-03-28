@@ -13,6 +13,8 @@ startup: once
 boot: manual
 init: false
 hassio_api: true
+# manager role is required for bashio::addons.installed and bashio::addon.options
+# used by export.addons. If you disable that export, default role would suffice.
 hassio_role: manager
 map:
   - type: config
