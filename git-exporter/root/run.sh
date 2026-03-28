@@ -61,29 +61,32 @@ print(netloc)
 
     if [ ! -d "$local_repository/.git" ]; then
         if [ -z "$(ls -A "$local_repository" 2>/dev/null)" ]; then
-            bashio::log.info 'Cloning repository into empty folder...'
-            git clone "$plainurl" "$local_repository"
+            bashio::log.info "🔗 Cloning ${plainurl}..."
+            git clone --quiet "$plainurl" "$local_repository" \
+                || { bashio::log.error "Git clone failed."; exit 1; }
         else
-            bashio::log.info 'Non-empty folder exists, initializing git...'
-            git -C "$local_repository" init
+            bashio::log.info "🔗 Initialising git in existing folder..."
+            git -C "$local_repository" init --quiet
             git -C "$local_repository" remote add origin "$plainurl" || true
         fi
     else
-        bashio::log.info 'Using existing Git repository.'
+        bashio::log.info "🔗 Connecting to ${plainurl}..."
     fi
     cd "$local_repository"
 
     [ -n "$ssl_verify" ] && git config http.sslVerify "$ssl_verify"
     git remote set-url origin "$plainurl"
-    git fetch origin || bashio::log.warning "Git fetch failed. Continuing with local state - push may fail."
-    if ! git checkout "$branch" 2>/dev/null; then
+    git fetch origin --quiet 2>&1 \
+        || bashio::log.warning "⚠️  Fetch failed - will attempt push with local state."
+    if ! git checkout --quiet "$branch" 2>/dev/null; then
         if git ls-remote --exit-code --heads origin "$branch" > /dev/null 2>&1; then
-            bashio::log.error "Branch '$branch' exists on remote but checkout failed."
+            bashio::log.error "Branch '${branch}' exists on remote but checkout failed."
             exit 1
         fi
-        bashio::log.info "Branch '$branch' not found, creating it."
-        git checkout -b "$branch"
+        bashio::log.info "🌿 Creating new branch: ${branch}"
+        git checkout --quiet -b "$branch"
     fi
+    bashio::log.info "🌿 Branch: ${branch}"
 
     git config user.name "$username"
     git config user.email "${commiter_mail:-git.exporter@home-assistant}"
@@ -93,7 +96,7 @@ print(netloc)
 # Secrets Check
 # ----------------------------
 function check_secrets {
-    bashio::log.info 'Adding secrets patterns...'
+    bashio::log.info '🔍 Scanning staged files for secrets...'
 
     # Reset any patterns left from a previous run before adding current ones
     git config --unset-all 'secrets.allowed' || true
@@ -126,9 +129,8 @@ function check_secrets {
         git secrets --add -a --literal '0.0.0.0'
     fi
 
-    bashio::log.info 'Scanning staged files for secrets...'
     git secrets --scan || {
-        bashio::log.error 'Secret or sensitive pattern detected in staged files - commit aborted.'
+        bashio::log.error '🚫 Secret or sensitive pattern detected - commit aborted.'
         bashio::log.error 'Check the output above to identify the offending file and pattern.'
         bashio::log.error 'Fix the issue, or set check.enabled to false to skip this check.'
         exit 1
@@ -138,36 +140,51 @@ function check_secrets {
 # ----------------------------
 # Export Functions
 # ----------------------------
+function rsync_with_stats {
+    local label="$1"; shift
+    local stats transferred deleted
+    stats=$(rsync "$@" --stats 2>&1)
+    transferred=$(echo "$stats" | grep "Number of regular files transferred:" | awk '{print $NF}')
+    deleted=$(echo "$stats" | grep "Number of deleted files:" | awk '{print $NF}')
+    bashio::log.info "${label}: ${transferred:-0} file(s) changed, ${deleted:-0} deleted."
+}
+
 function export_ha_config {
-    bashio::log.info 'Exporting Home Assistant configuration...'
+    bashio::log.info 'Exporting Home Assistant config...'
     mapfile -t excludes < <(bashio::config 'exclude')
     excludes=("secrets.yaml" ".storage" ".cloud" "esphome/" ".uuid" "node-red/" "${excludes[@]}")
     exclude_args=()
     for e in "${excludes[@]}"; do exclude_args+=("--exclude=$e"); done
-    rsync -av --compress --delete --checksum --prune-empty-dirs -q --include='.gitignore' "${exclude_args[@]}" /config/ "${local_repository}/config/"
+    rsync_with_stats "Home Assistant config" \
+        -a --compress --delete --checksum --prune-empty-dirs \
+        --include='.gitignore' "${exclude_args[@]}" /config/ "${local_repository}/config/"
     [ -f /config/secrets.yaml ] && sed 's/^\([^:#][^:]*\):.*$/\1: ""/g' /config/secrets.yaml > "${local_repository}/config/secrets.yaml"
     chmod 644 -R "${local_repository}/config"
 }
 
 function export_lovelace {
-    bashio::log.info 'Exporting Lovelace configuration...'
+    bashio::log.info 'Exporting Lovelace config...'
     mkdir -p "${local_repository}/lovelace"
     rm -rf '/tmp/lovelace' && mkdir -p '/tmp/lovelace'
     find /config/.storage -name "lovelace*" -printf '%f\n' | xargs -I % cp /config/.storage/% /tmp/lovelace/%.json || true
     /utils/jsonToYaml.py '/tmp/lovelace/' 'data'
-    rsync -av --compress --delete --checksum --prune-empty-dirs -q --include='*.yaml' --exclude='*' /tmp/lovelace/ "${local_repository}/lovelace"
+    rsync_with_stats "Lovelace" \
+        -a --compress --delete --checksum --prune-empty-dirs \
+        --include='*.yaml' --exclude='*' /tmp/lovelace/ "${local_repository}/lovelace"
     rm -rf '/tmp/lovelace'
     chmod 644 -R "${local_repository}/lovelace"
 }
 
 function export_esphome {
-    bashio::log.info 'Exporting ESPHome configuration...'
+    bashio::log.info 'Exporting ESPHome config...'
     mapfile -t excludes < <(bashio::config 'exclude')
     excludes=("secrets.yaml" "${excludes[@]}")
     exclude_args=()
     for e in "${excludes[@]}"; do exclude_args+=("--exclude=$e"); done
-    rsync -av --compress --delete --checksum --prune-empty-dirs -q \
-        --include='*/' --include='.gitignore' --include='*.yaml' --include='*.disabled' "${exclude_args[@]}" /config/esphome/ "${local_repository}/esphome/"
+    rsync_with_stats "ESPHome" \
+        -a --compress --delete --checksum --prune-empty-dirs \
+        --include='*/' --include='.gitignore' --include='*.yaml' --include='*.disabled' \
+        "${exclude_args[@]}" /config/esphome/ "${local_repository}/esphome/"
     [ -f /config/esphome/secrets.yaml ] && sed 's/^\([^:#][^:]*\):.*$/\1: ""/g' /config/esphome/secrets.yaml > "${local_repository}/esphome/secrets.yaml"
     chmod 644 -R "${local_repository}/esphome"
 }
@@ -176,7 +193,7 @@ function export_addons {
     mkdir -p "${local_repository}/addons"
     mapfile -t installed_addons < <(bashio::addons.installed)
     for addon in "${installed_addons[@]}"; do
-        bashio::log.info "Exporting ${addon} options..."
+        bashio::log.info "📦 Exporting addon options: ${addon}"
         local safe_addon="${addon//[^a-zA-Z0-9._-]/_}"
         local tmp_json="/tmp/addon_${safe_addon}.json"
         bashio::addon.options "$addon" > "$tmp_json"
@@ -184,7 +201,7 @@ function export_addons {
         mv "/tmp/addon_${safe_addon}.yaml" "${local_repository}/addons/${safe_addon}.yaml"
         rm -f "$tmp_json"
     done
-    bashio::log.info "Exporting addon repositories..."
+    bashio::log.info "📦 Exporting addon repositories..."
     bashio::api.supervisor GET "/store/repositories" false \
       | jq '. | map(select(.source != null and .source != "core" and .source != "local")) | map({(.name): {source,maintainer,slug}}) | add' > /tmp/addon_repositories.json
     /utils/jsonToYaml.py /tmp/addon_repositories.json
@@ -194,15 +211,17 @@ function export_addons {
 }
 
 function export_addon_configs {
-    bashio::log.info "Exporting /addon_configs..."
+    bashio::log.info "Exporting addon configs..."
     mkdir -p "${local_repository}/addons_config"
-    rsync -av --delete /addon_configs/ "${local_repository}/addons_config/" --filter='- .git/'
+    rsync_with_stats "Addon configs" \
+        -a --delete /addon_configs/ "${local_repository}/addons_config/" --filter='- .git/'
     chmod 644 -R "${local_repository}/addons_config"
 }
 
 function export_node_red {
     bashio::log.info 'Exporting Node-RED flows...'
-    rsync -av --compress --delete --checksum --prune-empty-dirs -q \
+    rsync_with_stats "Node-RED" \
+        -a --compress --delete --checksum --prune-empty-dirs \
         --exclude='flows_cred.json' --exclude='*.backup' --include='flows.json' --include='settings.js' --exclude='*' \
         /config/node-red/ "${local_repository}/node-red"
     chmod 644 -R "${local_repository}/node-red"
@@ -212,7 +231,7 @@ function export_node_red {
 # Cleanup & Permission Normalization
 # ----------------------------
 function cleanup_repo_files {
-    bashio::log.info "Cleaning repository before commit..."
+    bashio::log.info "🧹 Normalising file permissions..."
     # Exclude .git to avoid corrupting git's internal file permissions
     find "$local_repository" -not -path "$local_repository/.git/*" -not -path "$local_repository/.git" -type f -not -name "*.sh" -exec chmod 644 {} \;
     find "$local_repository" -not -path "$local_repository/.git/*" -not -path "$local_repository/.git" -type f -name "*.sh" -exec chmod 755 {} \;
@@ -220,35 +239,68 @@ function cleanup_repo_files {
 }
 
 # ----------------------------
+# Conditional Export Helper
+# ----------------------------
+# run_if_enabled <label> <config_key> [<required_dir>] <function>
+function run_if_enabled {
+    local label="$1" config_key="$2"
+    if [ $# -eq 4 ]; then
+        local required_dir="$3" func="$4"
+    else
+        local required_dir="" func="$3"
+    fi
+
+    if [ "$(bashio::config "$config_key")" != 'true' ]; then
+        bashio::log.info "Skipping ${label} export (disabled)."
+        return
+    fi
+    if [ -n "$required_dir" ] && [ ! -d "$required_dir" ]; then
+        bashio::log.info "Skipping ${label} export (${required_dir} not found)."
+        return
+    fi
+    $func
+}
+
+# ----------------------------
 # Main
 # ----------------------------
-bashio::log.info 'Starting git export...'
-
+bashio::log.info 'Starting export...'
 setup_git
+
 export_ha_config
-[ "$(bashio::config 'export.lovelace')" == 'true' ] && export_lovelace
-[ "$(bashio::config 'export.esphome')" == 'true' ] && [ -d '/config/esphome' ] && export_esphome
-[ "$(bashio::config 'export.addons')" == 'true' ] && export_addons
-[ "$(bashio::config 'export.addon_configs')" == 'true' ] && export_addon_configs
-[ "$(bashio::config 'export.node_red')" == 'true' ] && [ -d '/config/node-red' ] && export_node_red
+run_if_enabled "Lovelace"      'export.lovelace'      export_lovelace
+run_if_enabled "ESPHome"       'export.esphome'       '/config/esphome'  export_esphome
+run_if_enabled "addons"        'export.addons'        export_addons
+run_if_enabled "addon configs" 'export.addon_configs' export_addon_configs
+run_if_enabled "Node-RED"      'export.node_red'      '/config/node-red' export_node_red
+
 if [ "$(bashio::config 'dry_run')" == 'true' ]; then
+    bashio::log.info '🔎 Dry run - showing git status only:'
     git status
 else
     cleanup_repo_files
     if [ "$(bashio::config 'repository.pull_before_push')" == 'true' ]; then
-        bashio::log.info 'Pulling latest changes before push...'
-        git pull --ff-only origin "$branch" || bashio::log.warning "Pull failed (not a fast-forward). Continuing without pull - push may fail if remote has diverged."
+        bashio::log.info '⬇️  Pulling latest changes...'
+        git pull --ff-only --quiet origin "$branch" \
+            || bashio::log.warning "⚠️  Pull failed (not a fast-forward) - push may fail if remote has diverged."
     fi
-    bashio::log.info 'Committing changes and pushing to remote...'
+
     git add .
-    [ "$(bashio::config 'check.enabled')" == 'true' ] && check_secrets
-    commit_msg="$(bashio::config 'repository.commit_message')"
-    commit_msg="${commit_msg//\{DATE\}/$(date +'%Y-%m-%d %H:%M:%S')}"
-    git commit -m "$commit_msg" || bashio::log.info "No changes to commit."
-    git push origin "$branch" || bashio::log.warning "Push failed, check remote repository."
+    changed=$(git diff --cached --stat | tail -1)
+    if [ -z "$changed" ]; then
+        bashio::log.info '✅ Nothing to commit - no files changed.'
+    else
+        bashio::log.info "📝 ${changed}"
+        [ "$(bashio::config 'check.enabled')" == 'true' ] && check_secrets
+        commit_msg="$(bashio::config 'repository.commit_message')"
+        commit_msg="${commit_msg//\{DATE\}/$(date +'%Y-%m-%d %H:%M:%S')}"
+        git commit --quiet -m "$commit_msg"
+        bashio::log.info "⬆️  Pushing: '${commit_msg}'..."
+        git push --quiet origin "$branch" \
+            || bashio::log.warning "⚠️  Push failed - check remote repository access."
+        bashio::log.info '✅ Done.'
+    fi
 fi
 
-bashio::log.info 'Exporter finished. Stopping add-on...'
 [ -n "$(bashio::addon.slug)" ] && bashio::addon.stop || true
-bashio::log.info '✅ Git Export complete.'
 exit 0
