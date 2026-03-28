@@ -131,7 +131,7 @@ function export_ha_config {
 function export_lovelace {
     bashio::log.info 'Exporting Lovelace configuration...'
     mkdir -p "${local_repository}/lovelace"
-    mkdir -p '/tmp/lovelace'
+    rm -rf '/tmp/lovelace' && mkdir -p '/tmp/lovelace'
     find /config/.storage -name "lovelace*" -printf '%f\n' | xargs -I % cp /config/.storage/% /tmp/lovelace/%.json || true
     /utils/jsonToYaml.py '/tmp/lovelace/' 'data'
     rsync -av --compress --delete --checksum --prune-empty-dirs -q --include='*.yaml' --exclude='*' /tmp/lovelace/ "${local_repository}/lovelace"
