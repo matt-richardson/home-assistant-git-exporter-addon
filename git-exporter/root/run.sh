@@ -18,12 +18,25 @@ function setup_git {
     branch=$(bashio::config 'repository.branch_name')
     ssl_verify=$(bashio::config 'repository.ssl_verification')
 
-    # Write credentials to a git credential-store file (chmod 600).
-    # This keeps credentials out of the process list and out of .git/config.
-    local encoded_username encoded_password
-    encoded_username=$(GIT_EXPORT_USERNAME="$username" python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['GIT_EXPORT_USERNAME'], safe=''))")
-    encoded_password=$(GIT_EXPORT_PASSWORD="$password" python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['GIT_EXPORT_PASSWORD'], safe=''))")
-    local hostname="${repository##*https://}"; hostname="${hostname%%/*}"
+    # Parse URL, encode credentials, and build a credential-free URL in one Python call.
+    # Credentials are written to a chmod 600 store file, keeping them out of
+    # the process list and out of .git/config.
+    local encoded_username encoded_password plainurl hostname
+    { read -r encoded_username; read -r encoded_password; read -r plainurl; read -r hostname; } < <(
+        GIT_EXPORT_USERNAME="$username" GIT_EXPORT_PASSWORD="$password" GIT_EXPORT_REPO="$repository" \
+        python3 -c "
+import urllib.parse, os
+username = urllib.parse.quote(os.environ['GIT_EXPORT_USERNAME'], safe='')
+password = urllib.parse.quote(os.environ['GIT_EXPORT_PASSWORD'], safe='')
+u = urllib.parse.urlparse(os.environ['GIT_EXPORT_REPO'])
+netloc = u.hostname + (':' + str(u.port) if u.port else '')
+plainurl = u._replace(netloc=netloc).geturl()
+print(username)
+print(password)
+print(plainurl)
+print(netloc)
+"
+    )
     local creds_file='/data/.git-credentials'
     printf 'https://%s:%s@%s\n' "$encoded_username" "$encoded_password" "$hostname" > "$creds_file"
     chmod 600 "$creds_file"
@@ -31,14 +44,6 @@ function setup_git {
     export GIT_CONFIG_COUNT=$((idx + 1))
     export "GIT_CONFIG_KEY_${idx}=credential.helper"
     export "GIT_CONFIG_VALUE_${idx}=store --file $creds_file"
-
-    # Strip any embedded credentials from the URL (e.g. https://user:pass@host/...)
-    local plainurl
-    plainurl=$(GIT_EXPORT_REPO="$repository" python3 -c "
-import urllib.parse, os
-u = urllib.parse.urlparse(os.environ['GIT_EXPORT_REPO'])
-print(u._replace(netloc=u.hostname + (':' + str(u.port) if u.port else '')).geturl())
-")
 
     [ ! -d "$local_repository" ] && mkdir -p "$local_repository"
 
