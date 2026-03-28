@@ -98,7 +98,13 @@ Add your secret values to the check.
 
 ### `check.check_for_ips`
 
-Add pattern for ip and mac addresses to the search.
+When enabled, IPv4 addresses in exported files are replaced with `x.x.x.x`
+before committing, so internal IP addresses are never exposed in the repository.
+MAC addresses are scanned for and will block the commit if found.
+
+To allowlist a false positive (e.g. a MAC address in a template), add a regex
+matching the offending line to a `.gitallowed` file in the root of your
+config repository.
 
 
 ### `exclude`
