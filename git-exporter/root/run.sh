@@ -93,10 +93,11 @@ function check_secrets {
 # ----------------------------
 function export_ha_config {
     bashio::log.info 'Exporting Home Assistant configuration...'
-    excludes=($(bashio::config 'exclude'))
+    mapfile -t excludes < <(bashio::config 'exclude')
     excludes=("secrets.yaml" ".storage" ".cloud" "esphome/" ".uuid" "node-red/" "${excludes[@]}")
-    exclude_args=$(printf -- '--exclude=%s ' "${excludes[@]}")
-    rsync -av --compress --delete --checksum --prune-empty-dirs -q --include='.gitignore' $exclude_args /config/ "${local_repository}/config/"
+    exclude_args=()
+    for e in "${excludes[@]}"; do exclude_args+=("--exclude=$e"); done
+    rsync -av --compress --delete --checksum --prune-empty-dirs -q --include='.gitignore' "${exclude_args[@]}" /config/ "${local_repository}/config/"
     [ -f /config/secrets.yaml ] && sed 's/:.*$/: ""/g' /config/secrets.yaml > "${local_repository}/config/secrets.yaml"
     chmod 644 -R "${local_repository}/config"
 }
@@ -113,11 +114,12 @@ function export_lovelace {
 
 function export_esphome {
     bashio::log.info 'Exporting ESPHome configuration...'
-    excludes=($(bashio::config 'exclude'))
+    mapfile -t excludes < <(bashio::config 'exclude')
     excludes=("secrets.yaml" "${excludes[@]}")
-    exclude_args=$(printf -- '--exclude=%s ' "${excludes[@]}")
+    exclude_args=()
+    for e in "${excludes[@]}"; do exclude_args+=("--exclude=$e"); done
     rsync -av --compress --delete --checksum --prune-empty-dirs -q \
-        --include='*/' --include='.gitignore' --include='*.yaml' --include='*.disabled' $exclude_args /config/esphome/ "${local_repository}/esphome/"
+        --include='*/' --include='.gitignore' --include='*.yaml' --include='*.disabled' "${exclude_args[@]}" /config/esphome/ "${local_repository}/esphome/"
     [ -f /config/esphome/secrets.yaml ] && sed 's/:.*$/: ""/g' /config/esphome/secrets.yaml > "${local_repository}/esphome/secrets.yaml"
     chmod 644 -R "${local_repository}/esphome"
 }
