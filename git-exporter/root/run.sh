@@ -16,7 +16,10 @@ function setup_git {
     password=$(bashio::config 'repository.password')
     commiter_mail=$(bashio::config 'repository.email')
     branch=$(bashio::config 'repository.branch_name')
-    ssl_verify=$(bashio::config 'repository.ssl_verification')
+    ssl_verify=""
+    if bashio::config.has_value 'repository.ssl_verification'; then
+        ssl_verify=$(bashio::config 'repository.ssl_verification')
+    fi
 
     # Parse URL, encode credentials, and build a credential-free URL in one Python call.
     # Credentials are written to a chmod 600 store file, keeping them out of
