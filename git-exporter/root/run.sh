@@ -235,13 +235,15 @@ function export_node_red {
 # ----------------------------
 function redact_ips {
     bashio::log.info 'Redacting IP addresses...'
-    local count=0
-    while IFS= read -r -d '' file; do
-        if sed -i 's/\b\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}\b/x.x.x.x/g' "$file"; then
-            count=$((count + 1))
-        fi
-    done < <(find "$local_repository" -not -path "$local_repository/.git/*" -type f -print0)
-    bashio::log.info "IP redaction complete (${count} files processed)."
+    local files
+    mapfile -t files < <(grep -rIl --exclude-dir='.git' \
+        -E '([0-9]{1,3}\.){3}[0-9]{1,3}' "$local_repository")
+    if [ ${#files[@]} -eq 0 ]; then
+        bashio::log.info 'No IP addresses found.'
+        return
+    fi
+    sed -i 's/\b\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}\b/x.x.x.x/g' "${files[@]}"
+    bashio::log.info "Redacted IP addresses in ${#files[@]} file(s)."
 }
 
 # ----------------------------
