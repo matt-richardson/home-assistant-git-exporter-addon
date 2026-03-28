@@ -5,7 +5,6 @@ set -e
 export LD_PRELOAD="/usr/local/lib/libjemalloc.so.2"
 
 local_repository='/data/repository'
-pull_before_push="$(bashio::config 'repository.pull_before_push')"
 
 # ----------------------------
 # Git Setup
@@ -213,7 +212,7 @@ if [ "$(bashio::config 'dry_run')" == 'true' ]; then
     git status
 else
     cleanup_repo_files
-    if [ "$pull_before_push" == 'true' ]; then
+    if [ "$(bashio::config 'repository.pull_before_push')" == 'true' ]; then
         bashio::log.info 'Pulling latest changes before push...'
         git pull origin "$branch" || bashio::log.warning "Pull failed, continuing anyway."
     fi
