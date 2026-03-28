@@ -42,6 +42,7 @@ function setup_git {
         bashio::log.info 'Using existing Git repository.'
     fi
 
+    git remote set-url origin "$fullurl"
     git fetch origin || true
     git checkout "$branch" 2>/dev/null || git checkout -b "$branch"
 
