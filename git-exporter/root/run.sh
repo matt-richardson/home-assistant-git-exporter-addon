@@ -167,16 +167,13 @@ function check_secrets {
 # ----------------------------
 function log_git_changes {
     local label="$1" dest="$2"
-    local modified deleted new_files mod_count del_count new_count
+    local modified deleted mod_count del_count
     modified=$(git diff --name-only --diff-filter=AM -- "$dest")
     deleted=$(git diff --name-only --diff-filter=D -- "$dest")
-    new_files=$(git ls-files --others --exclude-standard "$dest")
     mod_count=$([ -n "$modified" ] && echo "$modified" | wc -l | tr -d ' ' || echo 0)
     del_count=$([ -n "$deleted" ] && echo "$deleted" | wc -l | tr -d ' ' || echo 0)
-    new_count=$([ -n "$new_files" ] && echo "$new_files" | wc -l | tr -d ' ' || echo 0)
-    bashio::log.info "${label}: ${mod_count} modified, ${new_count} new, ${del_count} deleted."
+    bashio::log.info "${label}: ${mod_count} modified, ${del_count} deleted."
     [ -n "$modified" ] && while IFS= read -r f; do bashio::log.info "  ${f}"; done <<< "$modified"
-    [ -n "$new_files" ] && while IFS= read -r f; do bashio::log.info "  ${f} (new)"; done <<< "$new_files"
     [ -n "$deleted" ] && while IFS= read -r f; do bashio::log.info "  ${f} (deleted)"; done <<< "$deleted"
 }
 
