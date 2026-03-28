@@ -160,6 +160,7 @@ function export_ha_config {
     chmod 644 -R "${local_repository}/config"
 }
 
+# shellcheck disable=SC2329
 function export_lovelace {
     bashio::log.info 'Exporting Lovelace config...'
     mkdir -p "${local_repository}/lovelace"
@@ -173,6 +174,7 @@ function export_lovelace {
     chmod 644 -R "${local_repository}/lovelace"
 }
 
+# shellcheck disable=SC2329
 function export_esphome {
     bashio::log.info 'Exporting ESPHome config...'
     mapfile -t excludes < <(bashio::config 'exclude')
@@ -187,6 +189,7 @@ function export_esphome {
     chmod 644 -R "${local_repository}/esphome"
 }
 
+# shellcheck disable=SC2329
 function export_addons {
     mkdir -p "${local_repository}/addons"
     mapfile -t installed_addons < <(bashio::addons.installed)
@@ -208,6 +211,7 @@ function export_addons {
     chmod 644 -R "${local_repository}/addons"
 }
 
+# shellcheck disable=SC2329
 function export_addon_configs {
     bashio::log.info "Exporting addon configs..."
     mkdir -p "${local_repository}/addons_config"
@@ -216,6 +220,7 @@ function export_addon_configs {
     chmod 644 -R "${local_repository}/addons_config"
 }
 
+# shellcheck disable=SC2329
 function export_node_red {
     bashio::log.info 'Exporting Node-RED flows...'
     rsync_with_stats "Node-RED" \
