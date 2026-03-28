@@ -162,14 +162,25 @@ function check_secrets {
 # ----------------------------
 # Export Functions
 # ----------------------------
+function log_git_changes {
+    local label="$1" dest="$2"
+    local modified deleted new_files mod_count del_count new_count
+    modified=$(git diff --name-only --diff-filter=AM -- "$dest")
+    deleted=$(git diff --name-only --diff-filter=D -- "$dest")
+    new_files=$(git ls-files --others --exclude-standard "$dest")
+    mod_count=$([ -n "$modified" ] && echo "$modified" | wc -l | tr -d ' ' || echo 0)
+    del_count=$([ -n "$deleted" ] && echo "$deleted" | wc -l | tr -d ' ' || echo 0)
+    new_count=$([ -n "$new_files" ] && echo "$new_files" | wc -l | tr -d ' ' || echo 0)
+    bashio::log.info "${label}: ${mod_count} modified, ${new_count} new, ${del_count} deleted."
+    [ -n "$modified" ] && while IFS= read -r f; do bashio::log.info "  ${f}"; done <<< "$modified"
+    [ -n "$new_files" ] && while IFS= read -r f; do bashio::log.info "  ${f} (new)"; done <<< "$new_files"
+    [ -n "$deleted" ] && while IFS= read -r f; do bashio::log.info "  ${f} (deleted)"; done <<< "$deleted"
+}
+
 function rsync_with_stats {
     local label="$1" dest="${*: -1}"; shift
-    local stats transferred deleted
-    stats=$(rsync "$@" --stats 2>&1)
-    deleted=$(echo "$stats" | grep "Number of deleted files:" | grep -oE '[0-9]+' | head -1)
-    bashio::log.info "${label}: ${deleted:-0} file(s) deleted."
-    git diff --name-only -- "$dest" | while IFS= read -r f; do bashio::log.info "  ${f}"; done
-    git ls-files --others --exclude-standard "$dest" | while IFS= read -r f; do bashio::log.info "  ${f} (new)"; done
+    rsync "$@" > /dev/null
+    log_git_changes "$label" "$dest"
 }
 
 function export_ha_config {
@@ -233,6 +244,7 @@ function export_addons {
     /utils/jsonToYaml.py /tmp/addon_repositories.json
     mv /tmp/addon_repositories.yaml "${local_repository}/addons/repositories.yaml"
     rm -f /tmp/addon_repositories.json
+    log_git_changes "Addons" "${local_repository}/addons"
     chmod 644 -R "${local_repository}/addons"
 }
 
