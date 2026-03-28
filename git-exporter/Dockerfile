@@ -5,9 +5,8 @@ RUN apk add --no-cache \
 		git \
 		make
 
-ENV GIT_SECRET_VERSION 1.3.0
 # hadolint ignore=DL3003
-# Pin to the commit SHA for the 1.3.0 tag to prevent tag tampering
+# git-secrets 1.3.0 — pinned to commit SHA to prevent tag tampering
 ENV GIT_SECRET_SHA ad82d68ee924906a0401dfd48de5057731a9bc84
 RUN git config --global advice.detachedHead false && \
     git init /git-secrets && \
