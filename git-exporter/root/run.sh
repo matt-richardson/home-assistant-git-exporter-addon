@@ -214,7 +214,7 @@ else
     cleanup_repo_files
     if [ "$(bashio::config 'repository.pull_before_push')" == 'true' ]; then
         bashio::log.info 'Pulling latest changes before push...'
-        git pull origin "$branch" || bashio::log.warning "Pull failed, continuing anyway."
+        git pull --ff-only origin "$branch" || bashio::log.warning "Pull failed (not a fast-forward). Continuing without pull - push may fail if remote has diverged."
     fi
     bashio::log.info 'Committing changes and pushing to remote...'
     git add .
