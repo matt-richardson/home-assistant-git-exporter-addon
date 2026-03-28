@@ -15,10 +15,6 @@ This version includes several improvements for better reliability, security, and
 * Commit messages can include `{DATE}` placeholders, automatically replaced with the current timestamp.
 * Automatic cleanup of obsolete files in the repository to prevent stale data.
 
-[![Release][release-badge]][release]
-![Addon Stage][stage-badge]
-
-[![Donate][donation-badge]][donation-url]
 
 ## Functionality
 

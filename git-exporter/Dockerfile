@@ -27,7 +27,7 @@ RUN apk add --no-cache \
 			py3-pip \
 			findutils \
 			jq \
-	&& pip3 install --no-cache-dir PyYAML==6.0.2 dotty-dict==1.3.1
+	&& pip3 install --no-cache-dir --break-system-packages PyYAML==6.0.2 dotty-dict==1.3.1
 
 COPY --from=BUILD /usr/local/bin/git-secrets /usr/local/bin/git-secrets
 
