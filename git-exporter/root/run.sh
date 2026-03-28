@@ -97,7 +97,7 @@ print(netloc)
 # ----------------------------
 function notify_ha {
     local message="$1"
-    local payload
+    local payload response http_code
     payload=$(HA_NOTIFY_MSG="$message" python3 -c "
 import json, os
 print(json.dumps({
@@ -106,12 +106,15 @@ print(json.dumps({
     'notification_id': 'git_exporter_error'
 }))
 ")
-    curl -sf -X POST \
+    response=$(curl -s -w "\n%{http_code}" -X POST \
         -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
         -H "Content-Type: application/json" \
         -d "$payload" \
-        "http://supervisor/core/api/services/persistent_notification/create" \
-        || bashio::log.warning "Failed to send HA notification."
+        "http://supervisor/core/api/services/persistent_notification/create" 2>&1) || true
+    http_code=$(echo "$response" | tail -1)
+    if [ "$http_code" != "200" ]; then
+        bashio::log.warning "Failed to send HA notification (HTTP ${http_code}): $(echo "$response" | head -1)"
+    fi
 }
 
 # ----------------------------
