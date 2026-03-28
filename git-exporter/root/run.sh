@@ -43,7 +43,7 @@ function setup_git {
 
     [ -n "$ssl_verify" ] && git config http.sslVerify "$ssl_verify"
     git remote set-url origin "$fullurl"
-    git fetch origin || true
+    git fetch origin || bashio::log.warning "Git fetch failed. Continuing with local state - push may fail."
     git checkout "$branch" 2>/dev/null || git checkout -b "$branch"
 
     git config user.name "$username"
