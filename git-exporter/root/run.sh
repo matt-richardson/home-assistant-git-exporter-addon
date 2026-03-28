@@ -137,7 +137,6 @@ function export_addons {
       | jq '. | map(select(.source != null and .source != "core" and .source != "local")) | map({(.name): {source,maintainer,slug}}) | add' > /tmp/tmp.json
     /utils/jsonToYaml.py /tmp/tmp.json
     mv /tmp/tmp.yaml "${local_repository}/addons/repositories.yaml"
-    rsync -av --compress --delete --checksum --prune-empty-dirs -q /tmp/addons/ "${local_repository}/addons"
     chmod 644 -R "${local_repository}/addons"
 }
 
