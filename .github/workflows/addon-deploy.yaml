@@ -22,7 +22,7 @@ jobs:
       version: ${{ steps.release.outputs.version }}
     steps:
       - name: ↩️ Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: ℹ️ Gather addon info
         id: information
@@ -49,7 +49,7 @@ jobs:
       fail-fast: false
     steps:
       - name: ↩️ Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: ℹ️ Resolve base image for architecture
         id: addon-meta
@@ -80,29 +80,20 @@ jobs:
         run: podman pull ${{ steps.addon-meta.outputs.from }}
 
       - name: 🚀 Build image
-        id: build
-        uses: redhat-actions/buildah-build@v2
-        with:
-          containerfiles: "./${{ needs.information.outputs.addon-folder }}/Dockerfile"
-          context: "./${{ needs.information.outputs.addon-folder }}"
-          image: ghcr.io/${{ github.repository_owner }}/${{ needs.information.outputs.slug }}-${{ matrix.architecture }}
-          tags: ${{ needs.information.outputs.version }}
-          platforms: ${{ steps.addon-meta.outputs.platform }}
-          build-args: |
-            BUILD_FROM=${{ steps.addon-meta.outputs.from }}
-            BUILD_ARCH=${{ matrix.architecture }}
-            BUILD_VERSION=${{ needs.information.outputs.version }}
-          layers: false
+        run: |
+          image="ghcr.io/${{ github.repository_owner }}/${{ needs.information.outputs.slug }}-${{ matrix.architecture }}"
+          tag="${{ needs.information.outputs.version }}"
+          podman build \
+            --file "./${{ needs.information.outputs.addon-folder }}/Dockerfile" \
+            --platform "${{ steps.addon-meta.outputs.platform }}" \
+            --build-arg "BUILD_FROM=${{ steps.addon-meta.outputs.from }}" \
+            --build-arg "BUILD_ARCH=${{ matrix.architecture }}" \
+            --build-arg "BUILD_VERSION=${{ needs.information.outputs.version }}" \
+            --tag "${image}:${tag}" \
+            "./${{ needs.information.outputs.addon-folder }}"
 
       - name: 🔑 Log in to GHCR
-        uses: redhat-actions/podman-login@v1
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.repository_owner }}" --password-stdin
 
       - name: ⤴️ Push image
-        uses: redhat-actions/push-to-registry@v2
-        with:
-          image: ${{ steps.build.outputs.image }}
-          tags: ${{ steps.build.outputs.tags }}
+        run: podman push "ghcr.io/${{ github.repository_owner }}/${{ needs.information.outputs.slug }}-${{ matrix.architecture }}:${{ needs.information.outputs.version }}"

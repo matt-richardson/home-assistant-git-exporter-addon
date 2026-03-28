@@ -30,7 +30,7 @@ jobs:
       description: ${{ steps.information.outputs.description }}
     steps:
       - name: ↩️ Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: ℹ️ Gather addon info
         id: information
@@ -42,7 +42,7 @@ jobs:
     needs: information
     steps:
       - name: ↩️ Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: 🚀 Run Home Assistant Add-on Lint
         uses: frenck/action-addon-linter@v2
@@ -56,7 +56,7 @@ jobs:
     needs: information
     steps:
       - name: ↩️ Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: 🚀 Run hadolint
         uses: hadolint/hadolint-action@v3.3.0
@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: ↩️ Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: 🚀 Run ShellCheck
         uses: ludeeus/action-shellcheck@2.0.0
@@ -80,7 +80,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: ↩️ Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: 🚀 Run markdownlint
         uses: nosborn/github-action-markdown-cli@v3.5.0
@@ -92,7 +92,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: ↩️ Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: 🚀 Run yamllint
         uses: ibiqlik/action-yamllint@v3.1.1
@@ -107,7 +107,7 @@ jobs:
       fail-fast: false
     steps:
       - name: ↩️ Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: ℹ️ Generate addon meta info
         id: addon-meta
@@ -146,25 +146,27 @@ jobs:
 
       - name: 🚀 Build image
         id: build-image
-        uses: redhat-actions/buildah-build@v2
-        with:
-          containerfiles: "./${{ needs.information.outputs.addon-folder }}/Dockerfile"
-          context: "./${{ needs.information.outputs.addon-folder }}"
-          image: ${{ steps.image-meta.outputs.images }}
-          tags: ${{ steps.image-meta.outputs.tags }}
-          platforms: ${{ steps.addon-meta.outputs.platform }}
-          build-args: |
-            BUILD_FROM=${{ steps.addon-meta.outputs.from }}
-            BUILD_ARCH=${{ matrix.architecture }}
-            BUILD_VERSION=${{ needs.information.outputs.version }}
-          layers: false
+        run: |
+          image="${{ steps.image-meta.outputs.images }}:${{ steps.image-meta.outputs.tags }}"
+          podman build \
+            --file "./${{ needs.information.outputs.addon-folder }}/Dockerfile" \
+            --platform "${{ steps.addon-meta.outputs.platform }}" \
+            --build-arg "BUILD_FROM=${{ steps.addon-meta.outputs.from }}" \
+            --build-arg "BUILD_ARCH=${{ matrix.architecture }}" \
+            --build-arg "BUILD_VERSION=${{ needs.information.outputs.version }}" \
+            --tag "${image}" \
+            "./${{ needs.information.outputs.addon-folder }}"
+          echo "image-with-tag=${image}" >> "$GITHUB_OUTPUT"
 
       - name: 🚚 Push image to docker daemon
-        run: podman push ${{ steps.build-image.outputs.image-with-tag }} docker-daemon:${{ steps.build-image.outputs.image-with-tag }}
+        run: podman push "${{ steps.build-image.outputs.image-with-tag }}" "docker-daemon:${{ steps.build-image.outputs.image-with-tag }}"
+
+      - name: 🚀 Install dive
+        run: |
+          DIVE_VERSION=0.12.0
+          wget -q "https://github.com/wagoodman/dive/releases/download/v${DIVE_VERSION}/dive_${DIVE_VERSION}_linux_amd64.tar.gz" -O /tmp/dive.tar.gz
+          tar -xzf /tmp/dive.tar.gz -C /tmp
+          sudo mv /tmp/dive /usr/local/bin/dive
 
       - name: 🚀 Execute dive
-        uses: MaxymVlasov/dive-action@v1.6.0
-        with:
-          image: "${{ steps.build-image.outputs.image-with-tag }}"
-          config-file: ${{ github.workspace }}/.dive-ci.yaml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+        run: dive "${{ steps.build-image.outputs.image-with-tag }}" --ci --ci-config "${{ github.workspace }}/.dive-ci.yaml"
