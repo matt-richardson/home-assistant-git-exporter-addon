@@ -27,9 +27,10 @@ function setup_git {
     local creds_file='/data/.git-credentials'
     printf 'https://%s:%s@%s\n' "$encoded_username" "$encoded_password" "$hostname" > "$creds_file"
     chmod 600 "$creds_file"
-    export GIT_CONFIG_COUNT=1
-    export GIT_CONFIG_KEY_0="credential.helper"
-    export GIT_CONFIG_VALUE_0="store --file $creds_file"
+    local idx="${GIT_CONFIG_COUNT:-0}"
+    export GIT_CONFIG_COUNT=$((idx + 1))
+    export "GIT_CONFIG_KEY_${idx}=credential.helper"
+    export "GIT_CONFIG_VALUE_${idx}=store --file $creds_file"
 
     # Strip any embedded credentials from the URL (e.g. https://user:pass@host/...)
     local plainurl
