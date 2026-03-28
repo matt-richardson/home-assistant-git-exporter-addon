@@ -139,12 +139,14 @@ function check_secrets {
 # Export Functions
 # ----------------------------
 function rsync_with_stats {
-    local label="$1"; shift
+    local label="$1" dest="${*: -1}"; shift
     local stats transferred deleted
     stats=$(rsync "$@" --stats 2>&1)
     transferred=$(echo "$stats" | grep "Number of regular files transferred:" | grep -oE '[0-9]+' | head -1)
     deleted=$(echo "$stats" | grep "Number of deleted files:" | grep -oE '[0-9]+' | head -1)
     bashio::log.info "${label}: ${transferred:-0} file(s) changed, ${deleted:-0} deleted."
+    git diff --name-only -- "$dest" | while IFS= read -r f; do bashio::log.info "  ${f}"; done
+    git ls-files --others --exclude-standard "$dest" | while IFS= read -r f; do bashio::log.info "  ${f} (new)"; done
 }
 
 function export_ha_config {
@@ -243,7 +245,8 @@ function redact_ips {
         return
     fi
     sed -i 's/\b\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}\b/x.x.x.x/g' "${files[@]}"
-    bashio::log.info "Redacted IP addresses in ${#files[@]} file(s)."
+    bashio::log.info "Redacted IP addresses in ${#files[@]} file(s):"
+    for f in "${files[@]}"; do bashio::log.info "  ${f}"; done
 }
 
 # ----------------------------
@@ -310,9 +313,6 @@ else
     if [ -z "$changed" ]; then
         bashio::log.info 'Nothing to commit - no files changed.'
     else
-        while IFS= read -r f; do
-            bashio::log.info "  ${f}"
-        done < <(git diff --cached --name-only)
         bashio::log.info "${changed}"
         [ "$(bashio::config 'check.enabled')" == 'true' ] && check_secrets
         commit_msg="$(bashio::config 'repository.commit_message')"
