@@ -74,11 +74,6 @@ print(netloc)
 
     git config user.name "$username"
     git config user.email "${commiter_mail:-git.exporter@home-assistant}"
-
-    # Reset git secrets
-    git config --unset-all 'secrets.allowed' || true
-    git config --unset-all 'secrets.patterns' || true
-    git config --unset-all 'secrets.providers' || true
 }
 
 # ----------------------------
@@ -86,6 +81,11 @@ print(netloc)
 # ----------------------------
 function check_secrets {
     bashio::log.info 'Adding secrets patterns...'
+
+    # Reset any patterns left from a previous run before adding current ones
+    git config --unset-all 'secrets.allowed' || true
+    git config --unset-all 'secrets.patterns' || true
+    git config --unset-all 'secrets.providers' || true
 
     git secrets --add -a '!secret'
 
