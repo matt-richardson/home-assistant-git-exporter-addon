@@ -122,17 +122,15 @@ function check_secrets {
         git secrets --add-provider -- sed '/^$/d;/^#.*/d;/^&/d;s/^.*://g;s/\s//g' /config/secrets.yaml
 
     if [ "$(bashio::config 'check.check_for_ips')" == 'true' ]; then
-        git secrets --add '([0-9]{1,3}\.){3}[0-9]{1,3}'
         git secrets --add '([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})'
         git secrets --add -a --literal 'AA:BB:CC:DD:EE:FF'
-        git secrets --add -a --literal '123.456.789.123'
-        git secrets --add -a --literal '0.0.0.0'
     fi
 
     git secrets --scan || {
-        bashio::log.error '🚫 Secret or sensitive pattern detected - commit aborted.'
+        bashio::log.error 'Secret or sensitive pattern detected - commit aborted.'
         bashio::log.error 'Check the output above to identify the offending file and pattern.'
-        bashio::log.error 'Fix the issue, or set check.enabled to false to skip this check.'
+        bashio::log.error 'To allowlist a false positive, add a regex to a .gitallowed file in the root of your config repository.'
+        bashio::log.error 'To disable this check entirely, set check.enabled to false.'
         exit 1
     }
 }
@@ -228,6 +226,20 @@ function export_node_red {
 }
 
 # ----------------------------
+# IP Redaction
+# ----------------------------
+function redact_ips {
+    bashio::log.info 'Redacting IP addresses...'
+    local count=0
+    while IFS= read -r -d '' file; do
+        if sed -i 's/\b\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}\b/x.x.x.x/g' "$file"; then
+            count=$((count + 1))
+        fi
+    done < <(find "$local_repository" -not -path "$local_repository/.git/*" -type f -print0)
+    bashio::log.info "IP redaction complete (${count} files processed)."
+}
+
+# ----------------------------
 # Cleanup & Permission Normalization
 # ----------------------------
 function cleanup_repo_files {
@@ -278,6 +290,7 @@ if [ "$(bashio::config 'dry_run')" == 'true' ]; then
     bashio::log.info '🔎 Dry run - showing git status only:'
     git status
 else
+    [ "$(bashio::config 'check.check_for_ips')" == 'true' ] && redact_ips
     cleanup_repo_files
     if [ "$(bashio::config 'repository.pull_before_push')" == 'true' ]; then
         bashio::log.info '⬇️  Pulling latest changes...'
