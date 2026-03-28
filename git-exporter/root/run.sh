@@ -142,8 +142,8 @@ function rsync_with_stats {
     local label="$1"; shift
     local stats transferred deleted
     stats=$(rsync "$@" --stats 2>&1)
-    transferred=$(echo "$stats" | grep "Number of regular files transferred:" | awk '{print $NF}')
-    deleted=$(echo "$stats" | grep "Number of deleted files:" | awk '{print $NF}')
+    transferred=$(echo "$stats" | grep "Number of regular files transferred:" | grep -oE '[0-9]+' | head -1)
+    deleted=$(echo "$stats" | grep "Number of deleted files:" | grep -oE '[0-9]+' | head -1)
     bashio::log.info "${label}: ${transferred:-0} file(s) changed, ${deleted:-0} deleted."
 }
 
@@ -310,6 +310,9 @@ else
     if [ -z "$changed" ]; then
         bashio::log.info 'Nothing to commit - no files changed.'
     else
+        while IFS= read -r f; do
+            bashio::log.info "  ${f}"
+        done < <(git diff --cached --name-only)
         bashio::log.info "${changed}"
         [ "$(bashio::config 'check.enabled')" == 'true' ] && check_secrets
         commit_msg="$(bashio::config 'repository.commit_message')"
