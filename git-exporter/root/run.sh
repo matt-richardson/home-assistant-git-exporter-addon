@@ -7,6 +7,12 @@ export LD_PRELOAD="/usr/local/lib/libjemalloc.so.2"
 local_repository='/data/repository'
 branch=''
 
+bashio::log.info "-----------------------------------"
+bashio::log.info "Home Assistant Git Exporter"
+bashio::log.info "Version: $(bashio::addon.version)"
+bashio::log.info "https://github.com/matt-richardson/home-assistant-git-exporter-addon"
+bashio::log.info "-----------------------------------"
+
 # ----------------------------
 # Git Setup
 # ----------------------------
