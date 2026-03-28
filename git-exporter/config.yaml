@@ -4,11 +4,8 @@ slug: git-exporter
 description: Export all of your Home Assistant configuration to a git repository of your choice
 url: https://github.com/matt-richardson/home-assistant-git-exporter-addon
 arch:
-  - armhf
-  - armv7
   - aarch64
   - amd64
-  - i386
 startup: once
 boot: manual
 init: false
