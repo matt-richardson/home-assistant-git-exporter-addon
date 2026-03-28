@@ -28,4 +28,5 @@ if os.path.isfile(input_file):
 else:
     #print ('Convert folder ' + input_file)
     for json_file in os.listdir(input_file):
-        convert_file(os.path.dirname(input_file) + '/' + json_file, path)
+        if json_file.endswith('.json'):
+            convert_file(os.path.dirname(input_file) + '/' + json_file, path)
