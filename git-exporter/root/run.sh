@@ -144,6 +144,7 @@ function check_secrets {
         git secrets --add-provider -- sed '/^$/d;/^#.*/d;/^&/d;s/^.*://g;s/\s//g' /config/secrets.yaml
 
     if [ "$(bashio::config 'check.check_for_ips')" == 'true' ]; then
+        git secrets --add '([0-9]{1,3}\.){3}[0-9]{1,3}'
         git secrets --add '([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})'
         git secrets --add -a --literal 'AA:BB:CC:DD:EE:FF'
     fi
@@ -322,7 +323,7 @@ if [ "$(bashio::config 'dry_run')" == 'true' ]; then
     bashio::log.info 'Dry run - showing git status only:'
     git status
 else
-    [ "$(bashio::config 'check.check_for_ips')" == 'true' ] && redact_ips
+    [ "$(bashio::config 'check.redact_ips')" == 'true' ] && redact_ips
     cleanup_repo_files
     if [ "$(bashio::config 'repository.pull_before_push')" == 'true' ]; then
         bashio::log.info 'Pulling latest changes...'

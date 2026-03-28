@@ -20,6 +20,7 @@ check:
   enabled: true
   check_for_secrets: true
   check_for_ips: true
+  redact_ips: true
 exclude:
   - '*.db'
   - '*.log'
@@ -98,13 +99,22 @@ Add your secret values to the check.
 
 ### `check.check_for_ips`
 
+When enabled, staged files are scanned for IPv4 addresses and MAC addresses.
+If any are found the commit is aborted.
+
+To allowlist a false positive, add a regex matching the offending line to a
+`.gitallowed` file in the root of your config repository.
+
+Use `check.redact_ips` to automatically replace IPv4 addresses instead of
+blocking the commit.
+
+### `check.redact_ips`
+
 When enabled, IPv4 addresses in exported files are replaced with `x.x.x.x`
 before committing, so internal IP addresses are never exposed in the repository.
-MAC addresses are scanned for and will block the commit if found.
 
-To allowlist a false positive (e.g. a MAC address in a template), add a regex
-matching the offending line to a `.gitallowed` file in the root of your
-config repository.
+If both `check_for_ips` and `redact_ips` are enabled, redaction runs first so
+the IP check will only catch any addresses that were missed by the redaction.
 
 
 ### `exclude`
