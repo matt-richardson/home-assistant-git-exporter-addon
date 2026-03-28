@@ -113,6 +113,9 @@ function check_secrets {
         git secrets --add -a --literal '123.456.789.123'
         git secrets --add -a --literal '0.0.0.0'
     fi
+
+    bashio::log.info 'Scanning staged files for secrets...'
+    git secrets --scan
 }
 
 # ----------------------------
