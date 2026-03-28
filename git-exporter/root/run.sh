@@ -179,7 +179,7 @@ function export_ha_config {
     for e in "${excludes[@]}"; do exclude_args+=("--exclude=$e"); done
     rsync_with_stats "Home Assistant config" \
         -a --compress --delete --checksum --prune-empty-dirs \
-        --include='.gitignore' "${exclude_args[@]}" /config/ "${local_repository}/config/"
+        --include='.gitignore' --filter=':- .gitignore' "${exclude_args[@]}" /config/ "${local_repository}/config/"
     [ -f /config/secrets.yaml ] && sed 's/^\([^:#][^:]*\):.*$/\1: ""/g' /config/secrets.yaml > "${local_repository}/config/secrets.yaml"
     chmod 644 -R "${local_repository}/config"
 }
@@ -207,7 +207,7 @@ function export_esphome {
     for e in "${excludes[@]}"; do exclude_args+=("--exclude=$e"); done
     rsync_with_stats "ESPHome" \
         -a --compress --delete --checksum --prune-empty-dirs \
-        --include='*/' --include='.gitignore' --include='*.yaml' --include='*.disabled' \
+        --include='*/' --include='.gitignore' --filter=':- .gitignore' --include='*.yaml' --include='*.disabled' \
         "${exclude_args[@]}" /config/esphome/ "${local_repository}/esphome/"
     [ -f /config/esphome/secrets.yaml ] && sed 's/^\([^:#][^:]*\):.*$/\1: ""/g' /config/esphome/secrets.yaml > "${local_repository}/esphome/secrets.yaml"
     chmod 644 -R "${local_repository}/esphome"
