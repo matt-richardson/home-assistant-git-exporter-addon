@@ -64,7 +64,14 @@ print(netloc)
     [ -n "$ssl_verify" ] && git config http.sslVerify "$ssl_verify"
     git remote set-url origin "$plainurl"
     git fetch origin || bashio::log.warning "Git fetch failed. Continuing with local state - push may fail."
-    git checkout "$branch" 2>/dev/null || git checkout -b "$branch"
+    if ! git checkout "$branch" 2>/dev/null; then
+        if git ls-remote --exit-code --heads origin "$branch" > /dev/null 2>&1; then
+            bashio::log.error "Branch '$branch' exists on remote but checkout failed."
+            exit 1
+        fi
+        bashio::log.info "Branch '$branch' not found, creating it."
+        git checkout -b "$branch"
+    fi
 
     git config user.name "$username"
     git config user.email "${commiter_mail:-git.exporter@home-assistant}"
