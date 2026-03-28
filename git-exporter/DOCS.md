@@ -5,9 +5,11 @@ repository:
   url: <path to your repository>
   username: user
   password: pass
+  email: user@example.com
   pull_before_push: true
   commit_message: 'Home Assistant Git Exporter'
   branch_name: 'main'
+  ssl_verification: true
 export:
   lovelace: true
   addons: true
