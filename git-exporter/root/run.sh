@@ -20,11 +20,12 @@ function setup_git {
 
     # Write credentials to a git credential-store file (chmod 600).
     # This keeps credentials out of the process list and out of .git/config.
-    local encoded_password
+    local encoded_username encoded_password
+    encoded_username=$(GIT_EXPORT_USERNAME="$username" python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['GIT_EXPORT_USERNAME'], safe=''))")
     encoded_password=$(GIT_EXPORT_PASSWORD="$password" python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['GIT_EXPORT_PASSWORD'], safe=''))")
     local hostname="${repository##*https://}"; hostname="${hostname%%/*}"
     local creds_file='/data/.git-credentials'
-    printf 'https://%s:%s@%s\n' "$username" "$encoded_password" "$hostname" > "$creds_file"
+    printf 'https://%s:%s@%s\n' "$encoded_username" "$encoded_password" "$hostname" > "$creds_file"
     chmod 600 "$creds_file"
     export GIT_CONFIG_COUNT=1
     export GIT_CONFIG_KEY_0="credential.helper"
