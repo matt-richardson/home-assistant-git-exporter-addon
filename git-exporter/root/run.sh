@@ -177,10 +177,10 @@ function export_node_red {
 # ----------------------------
 function cleanup_repo_files {
     bashio::log.info "Cleaning repository before commit..."
-    # Nur Git-Zwischenkopie bereinigen, keine echten Daten anfassen
-    chmod -R 644 "$local_repository"
-    find "$local_repository" -type f -name "*.sh" -exec chmod 755 {} \;
-    find "$local_repository" -type d -exec chmod 755 {} \;
+    # Exclude .git to avoid corrupting git's internal file permissions
+    find "$local_repository" -not -path "$local_repository/.git/*" -not -path "$local_repository/.git" -type f -not -name "*.sh" -exec chmod 644 {} \;
+    find "$local_repository" -not -path "$local_repository/.git/*" -not -path "$local_repository/.git" -type f -name "*.sh" -exec chmod 755 {} \;
+    find "$local_repository" -not -path "$local_repository/.git/*" -not -path "$local_repository/.git" -type d -exec chmod 755 {} \;
 }
 
 # ----------------------------
