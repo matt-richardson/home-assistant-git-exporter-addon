@@ -11,9 +11,10 @@ repository:
 export:
   lovelace: true
   addons: true
+  addon_configs: true
   esphome: true
   node_red: true
-checks:
+check:
   enabled: true
   check_for_secrets: true
   check_for_ips: true
@@ -27,8 +28,6 @@ exclude:
   - '*.db-shm'
   - '*.db-wal'
   - '*.gz'
-secrets: []
-allowed_secrets: []
 dry_run: false
 ```
 
@@ -73,6 +72,10 @@ Enable / Disable the export for the lovelace config.
 
 Enable / Disable the export for the supervisor addons config.
 
+### `export.addon_configs`
+
+Enable / Disable the export for individual addon configuration directories from `/addon_configs`.
+
 ### `export.esphome`
 
 Enable / Disable the export for the esphome config.
@@ -83,15 +86,15 @@ Enable / Disable the export for the Node-RED flows.
 Secure your credentials with [node-red-contrib-credentials](https://flows.nodered.org/node/node-red-contrib-credentials).
 
 
-### `checks.enabled`
+### `check.enabled`
 
 Enable / Disable the checks in the exported files.
 
-### `checks.check_for_secrets`
+### `check.check_for_secrets`
 
 Add your secret values to the check.
 
-### `checks.check_for_ips`
+### `check.check_for_ips`
 
 Add pattern for ip and mac addresses to the search.
 
@@ -105,15 +108,6 @@ Following folders and files are excluded from the sync per default:
 * `secrets.yaml` (secrets are cleared)
 * `.cloud`
 * `.storage`
-
-### `secrets`
-
-Additional secrets which will be checked for.
-
-
-### `allowed_secrets`
-
-Additional allowed secrets which will not make the secret check fail.
 
 
 ### `dry_run`
