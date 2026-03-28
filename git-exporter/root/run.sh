@@ -171,7 +171,7 @@ function export_addons {
 function export_addon_configs {
     bashio::log.info "Exporting /addon_configs..."
     mkdir -p "${local_repository}/addons_config"
-    rsync -av --delete /addon_configs/ "${local_repository}/addons_config/" --exclude '.git'
+    rsync -av --delete /addon_configs/ "${local_repository}/addons_config/" --filter='- .git/'
     chmod 644 -R "${local_repository}/addons_config"
 }
 
