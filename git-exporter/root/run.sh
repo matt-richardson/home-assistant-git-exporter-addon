@@ -61,32 +61,32 @@ print(netloc)
 
     if [ ! -d "$local_repository/.git" ]; then
         if [ -z "$(ls -A "$local_repository" 2>/dev/null)" ]; then
-            bashio::log.info "🔗 Cloning ${plainurl}..."
+            bashio::log.info "Cloning ${plainurl}..."
             git clone --quiet "$plainurl" "$local_repository" \
                 || { bashio::log.error "Git clone failed."; exit 1; }
         else
-            bashio::log.info "🔗 Initialising git in existing folder..."
+            bashio::log.info "Initialising git in existing folder..."
             git -C "$local_repository" init --quiet
             git -C "$local_repository" remote add origin "$plainurl" || true
         fi
     else
-        bashio::log.info "🔗 Connecting to ${plainurl}..."
+        bashio::log.info "Connecting to ${plainurl}..."
     fi
     cd "$local_repository"
 
     [ -n "$ssl_verify" ] && git config http.sslVerify "$ssl_verify"
     git remote set-url origin "$plainurl"
     git fetch origin --quiet 2>&1 \
-        || bashio::log.warning "⚠️  Fetch failed - will attempt push with local state."
+        || bashio::log.warning "Fetch failed - will attempt push with local state."
     if ! git checkout --quiet "$branch" 2>/dev/null; then
         if git ls-remote --exit-code --heads origin "$branch" > /dev/null 2>&1; then
             bashio::log.error "Branch '${branch}' exists on remote but checkout failed."
             exit 1
         fi
-        bashio::log.info "🌿 Creating new branch: ${branch}"
+        bashio::log.info "Creating new branch: ${branch}"
         git checkout --quiet -b "$branch"
     fi
-    bashio::log.info "🌿 Branch: ${branch}"
+    bashio::log.info "Branch: ${branch}"
 
     git config user.name "$username"
     git config user.email "${commiter_mail:-git.exporter@home-assistant}"
@@ -96,7 +96,7 @@ print(netloc)
 # Secrets Check
 # ----------------------------
 function check_secrets {
-    bashio::log.info '🔍 Scanning staged files for secrets...'
+    bashio::log.info 'Scanning staged files for secrets...'
 
     # Reset any patterns left from a previous run before adding current ones
     git config --unset-all 'secrets.allowed' || true
@@ -194,7 +194,7 @@ function export_addons {
     mkdir -p "${local_repository}/addons"
     mapfile -t installed_addons < <(bashio::addons.installed)
     for addon in "${installed_addons[@]}"; do
-        bashio::log.info "📦 Exporting addon options: ${addon}"
+        bashio::log.info "Exporting addon options: ${addon}"
         local safe_addon="${addon//[^a-zA-Z0-9._-]/_}"
         local tmp_json="/tmp/addon_${safe_addon}.json"
         bashio::addon.options "$addon" > "$tmp_json"
@@ -202,7 +202,7 @@ function export_addons {
         mv "/tmp/addon_${safe_addon}.yaml" "${local_repository}/addons/${safe_addon}.yaml"
         rm -f "$tmp_json"
     done
-    bashio::log.info "📦 Exporting addon repositories..."
+    bashio::log.info "Exporting addon repositories..."
     bashio::api.supervisor GET "/store/repositories" false \
       | jq '. | map(select(.source != null and .source != "core" and .source != "local")) | map({(.name): {source,maintainer,slug}}) | add' > /tmp/addon_repositories.json
     /utils/jsonToYaml.py /tmp/addon_repositories.json
@@ -248,7 +248,7 @@ function redact_ips {
 # Cleanup & Permission Normalization
 # ----------------------------
 function cleanup_repo_files {
-    bashio::log.info "🧹 Normalising file permissions..."
+    bashio::log.info "Normalising file permissions..."
     # Exclude .git to avoid corrupting git's internal file permissions
     find "$local_repository" -not -path "$local_repository/.git/*" -not -path "$local_repository/.git" -type f -not -name "*.sh" -exec chmod 644 {} \;
     find "$local_repository" -not -path "$local_repository/.git/*" -not -path "$local_repository/.git" -type f -name "*.sh" -exec chmod 755 {} \;
@@ -292,31 +292,31 @@ run_if_enabled "addon configs" 'export.addon_configs' export_addon_configs
 run_if_enabled "Node-RED"      'export.node_red'      '/config/node-red' export_node_red
 
 if [ "$(bashio::config 'dry_run')" == 'true' ]; then
-    bashio::log.info '🔎 Dry run - showing git status only:'
+    bashio::log.info 'Dry run - showing git status only:'
     git status
 else
     [ "$(bashio::config 'check.check_for_ips')" == 'true' ] && redact_ips
     cleanup_repo_files
     if [ "$(bashio::config 'repository.pull_before_push')" == 'true' ]; then
-        bashio::log.info '⬇️  Pulling latest changes...'
+        bashio::log.info 'Pulling latest changes...'
         git pull --ff-only --quiet origin "$branch" \
-            || bashio::log.warning "⚠️  Pull failed (not a fast-forward) - push may fail if remote has diverged."
+            || bashio::log.warning "Pull failed (not a fast-forward) - push may fail if remote has diverged."
     fi
 
     git add .
     changed=$(git diff --cached --stat | tail -1)
     if [ -z "$changed" ]; then
-        bashio::log.info '✅ Nothing to commit - no files changed.'
+        bashio::log.info 'Nothing to commit - no files changed.'
     else
-        bashio::log.info "📝 ${changed}"
+        bashio::log.info "${changed}"
         [ "$(bashio::config 'check.enabled')" == 'true' ] && check_secrets
         commit_msg="$(bashio::config 'repository.commit_message')"
         commit_msg="${commit_msg//\{DATE\}/$(date +'%Y-%m-%d %H:%M:%S')}"
         git commit --quiet -m "$commit_msg"
-        bashio::log.info "⬆️  Pushing: '${commit_msg}'..."
+        bashio::log.info "Pushing: '${commit_msg}'..."
         git push --quiet origin "$branch" \
-            || bashio::log.warning "⚠️  Push failed - check remote repository access."
-        bashio::log.info '✅ Done.'
+            || bashio::log.warning "Push failed - check remote repository access."
+        bashio::log.info 'Done.'
     fi
 fi
 
