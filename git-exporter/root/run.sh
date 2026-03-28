@@ -141,9 +141,9 @@ function export_esphome {
 
 function export_addons {
     mkdir -p "${local_repository}/addons"
-    installed_addons=$(bashio::addons.installed)
+    mapfile -t installed_addons < <(bashio::addons.installed)
     mkdir -p '/tmp/addons/'
-    for addon in $installed_addons; do
+    for addon in "${installed_addons[@]}"; do
         bashio::log.info "Exporting ${addon} options..."
         bashio::addon.options "$addon" >  /tmp/tmp.json
         /utils/jsonToYaml.py /tmp/tmp.json
