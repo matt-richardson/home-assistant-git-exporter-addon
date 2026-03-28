@@ -185,6 +185,10 @@ if [ "$(bashio::config 'dry_run')" == 'true' ]; then
     git status
 else
     cleanup_repo_files
+    if [ "$pull_before_push" == 'true' ]; then
+        bashio::log.info 'Pulling latest changes before push...'
+        git pull origin "$branch" || bashio::log.warning "Pull failed, continuing anyway."
+    fi
     bashio::log.info 'Committing changes and pushing to remote...'
     git add .
     commit_msg="$(bashio::config 'repository.commit_message')"
