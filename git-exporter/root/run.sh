@@ -165,9 +165,8 @@ function rsync_with_stats {
     local label="$1" dest="${*: -1}"; shift
     local stats transferred deleted
     stats=$(rsync "$@" --stats 2>&1)
-    transferred=$(echo "$stats" | grep "Number of regular files transferred:" | grep -oE '[0-9]+' | head -1)
     deleted=$(echo "$stats" | grep "Number of deleted files:" | grep -oE '[0-9]+' | head -1)
-    bashio::log.info "${label}: ${transferred:-0} file(s) changed, ${deleted:-0} deleted."
+    bashio::log.info "${label}: ${deleted:-0} file(s) deleted."
     git diff --name-only -- "$dest" | while IFS= read -r f; do bashio::log.info "  ${f}"; done
     git ls-files --others --exclude-standard "$dest" | while IFS= read -r f; do bashio::log.info "  ${f} (new)"; done
 }
@@ -241,7 +240,7 @@ function export_addon_configs {
     bashio::log.info "Exporting addon configs..."
     mkdir -p "${local_repository}/addons_config"
     rsync_with_stats "Addon configs" \
-        -a --delete /addon_configs/ "${local_repository}/addons_config/" --filter='- .git/'
+        -a --delete --filter='- .git/' /addon_configs/ "${local_repository}/addons_config/"
     chmod 644 -R "${local_repository}/addons_config"
 }
 
