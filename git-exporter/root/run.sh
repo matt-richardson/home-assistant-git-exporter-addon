@@ -31,8 +31,13 @@ function setup_git {
     export GIT_CONFIG_KEY_0="credential.helper"
     export GIT_CONFIG_VALUE_0="store --file $creds_file"
 
-    # Use a plain URL with no embedded credentials
-    local plainurl="https://${repository##*https://}"
+    # Strip any embedded credentials from the URL (e.g. https://user:pass@host/...)
+    local plainurl
+    plainurl=$(GIT_EXPORT_REPO="$repository" python3 -c "
+import urllib.parse, os
+u = urllib.parse.urlparse(os.environ['GIT_EXPORT_REPO'])
+print(u._replace(netloc=u.hostname + (':' + str(u.port) if u.port else '')).geturl())
+")
 
     [ ! -d "$local_repository" ] && mkdir -p "$local_repository"
 
