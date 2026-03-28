@@ -16,9 +16,9 @@ hassio_api: true
 hassio_role: manager
 map:
   - type: config
-    read_only: false
+    read_only: true
   - type: all_addon_configs
-    read_only: false
+    read_only: true
 options:
   repository:
     url: ''
