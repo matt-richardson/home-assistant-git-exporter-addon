@@ -115,7 +115,12 @@ function check_secrets {
     fi
 
     bashio::log.info 'Scanning staged files for secrets...'
-    git secrets --scan
+    git secrets --scan || {
+        bashio::log.error 'Secret or sensitive pattern detected in staged files - commit aborted.'
+        bashio::log.error 'Check the output above to identify the offending file and pattern.'
+        bashio::log.error 'Fix the issue, or set check.enabled to false to skip this check.'
+        exit 1
+    }
 }
 
 # ----------------------------
