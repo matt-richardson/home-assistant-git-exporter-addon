@@ -159,10 +159,11 @@ function export_addons {
     mapfile -t installed_addons < <(bashio::addons.installed)
     for addon in "${installed_addons[@]}"; do
         bashio::log.info "Exporting ${addon} options..."
-        local tmp_json="/tmp/addon_${addon}.json"
+        local safe_addon="${addon//[^a-zA-Z0-9._-]/_}"
+        local tmp_json="/tmp/addon_${safe_addon}.json"
         bashio::addon.options "$addon" > "$tmp_json"
         /utils/jsonToYaml.py "$tmp_json"
-        mv "/tmp/addon_${addon}.yaml" "${local_repository}/addons/${addon}.yaml"
+        mv "/tmp/addon_${safe_addon}.yaml" "${local_repository}/addons/${safe_addon}.yaml"
         rm -f "$tmp_json"
     done
     bashio::log.info "Exporting addon repositories..."
