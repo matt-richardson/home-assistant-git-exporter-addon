@@ -5,6 +5,7 @@ set -e
 export LD_PRELOAD="/usr/local/lib/libjemalloc.so.2"
 
 local_repository='/data/repository'
+branch=''
 
 # ----------------------------
 # Git Setup
