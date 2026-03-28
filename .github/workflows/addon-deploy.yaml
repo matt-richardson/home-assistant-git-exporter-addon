@@ -6,13 +6,103 @@ on:
     types:
       - published
 
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
 jobs:
-  workflows:
-    uses: Poeschl-HomeAssistant-Addons/workflows/.github/workflows/addon-deploy.yaml@main
+  information:
+    name: ℹ️ Gather add-on information
+    runs-on: ubuntu-latest
+    outputs:
+      addon-folder: ${{ steps.information.outputs.target }}
+      slug: ${{ steps.information.outputs.slug }}
+      architectures: ${{ steps.information.outputs.architectures }}
+      build-file: ${{ steps.information.outputs.build }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: ↩️ Checkout
+        uses: actions/checkout@v4
+
+      - name: ℹ️ Gather addon info
+        id: information
+        uses: frenck/action-addon-information@v1
+
+      - name: ℹ️ Determine version from release tag
+        id: release
+        run: |
+          version="${{ github.event.release.tag_name }}"
+          version="${version,,}"
+          version="${version#v}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+  build-and-push:
+    name: 💽 Build & push ${{ matrix.architecture }}
+    runs-on: ubuntu-24.04
+    needs: information
     permissions:
       contents: read
       packages: write
-    secrets:
-      dispatch_token: ${{ secrets.DISPATCH_TOKEN }}
-    with:
-      version: "${{ github.event.release.tag_name }}"
+    strategy:
+      matrix:
+        architecture: ${{ fromJson(needs.information.outputs.architectures) }}
+      fail-fast: false
+    steps:
+      - name: ↩️ Checkout
+        uses: actions/checkout@v4
+
+      - name: ℹ️ Resolve base image for architecture
+        id: addon-meta
+        shell: bash
+        run: |
+          from=$(yq --no-colors eval ".build_from.${{ matrix.architecture }}" "${{ needs.information.outputs.build-file }}")
+          echo "from=${from}" >> "$GITHUB_OUTPUT"
+
+          if [[ "${{ matrix.architecture }}" = "amd64" ]]; then
+            echo "platform=linux/amd64" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ matrix.architecture }}" = "i386" ]]; then
+            echo "platform=linux/386" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ matrix.architecture }}" = "armhf" ]]; then
+            echo "platform=linux/arm/v6" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ matrix.architecture }}" = "armv7" ]]; then
+            echo "platform=linux/arm/v7" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ matrix.architecture }}" = "aarch64" ]]; then
+            echo "platform=linux/arm64/v8" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error ::Unknown architecture: ${{ matrix.architecture }}"
+            exit 1
+          fi
+
+      - name: 🏗️ Install QEMU for multi-platform builds
+        run: sudo podman run --rm --privileged docker.io/multiarch/qemu-user-static --reset -p yes
+
+      - name: 🏗️ Pull base image
+        run: podman pull ${{ steps.addon-meta.outputs.from }}
+
+      - name: 🚀 Build image
+        id: build
+        uses: redhat-actions/buildah-build@v2
+        with:
+          containerfiles: "./${{ needs.information.outputs.addon-folder }}/Dockerfile"
+          context: "./${{ needs.information.outputs.addon-folder }}"
+          image: ghcr.io/${{ github.repository_owner }}/${{ needs.information.outputs.slug }}-${{ matrix.architecture }}
+          tags: ${{ needs.information.outputs.version }}
+          platforms: ${{ steps.addon-meta.outputs.platform }}
+          build-args: |
+            BUILD_FROM=${{ steps.addon-meta.outputs.from }}
+            BUILD_ARCH=${{ matrix.architecture }}
+            BUILD_VERSION=${{ needs.information.outputs.version }}
+          layers: false
+
+      - name: 🔑 Log in to GHCR
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ⤴️ Push image
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build.outputs.image }}
+          tags: ${{ steps.build.outputs.tags }}
