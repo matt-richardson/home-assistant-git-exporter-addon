@@ -20,7 +20,7 @@ function setup_git {
 
     # URL encode password unless it's a GitHub token
     if [[ "$password" != ghp_* ]] && [[ "$password" != github_pat_* ]]; then
-        password=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${password}'))")
+        password=$(GIT_EXPORT_PASSWORD="$password" python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['GIT_EXPORT_PASSWORD']))")
     fi
 
     fullurl="https://${username}:${password}@${repository##*https://}"
