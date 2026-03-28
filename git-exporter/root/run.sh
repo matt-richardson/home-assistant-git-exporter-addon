@@ -158,7 +158,6 @@ function export_addons {
 }
 
 function export_addon_configs {
-    [ "$(bashio::config 'export.addon_configs')" == 'true' ] || return
     bashio::log.info "Exporting /addon_configs..."
     mkdir -p "${local_repository}/addons_config"
     rsync -av --delete /addon_configs/ "${local_repository}/addons_config/" --exclude '.git'
