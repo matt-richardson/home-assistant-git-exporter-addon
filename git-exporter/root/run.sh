@@ -206,8 +206,6 @@ export_ha_config
 [ "$(bashio::config 'export.addons')" == 'true' ] && export_addons
 [ "$(bashio::config 'export.addon_configs')" == 'true' ] && export_addon_configs
 [ "$(bashio::config 'export.node_red')" == 'true' ] && [ -d '/config/node-red' ] && export_node_red
-[ "$(bashio::config 'check.enabled')" == 'true' ] && check_secrets
-
 if [ "$(bashio::config 'dry_run')" == 'true' ]; then
     git status
 else
@@ -218,6 +216,7 @@ else
     fi
     bashio::log.info 'Committing changes and pushing to remote...'
     git add .
+    [ "$(bashio::config 'check.enabled')" == 'true' ] && check_secrets
     commit_msg="$(bashio::config 'repository.commit_message')"
     commit_msg="${commit_msg//\{DATE\}/$(date +'%Y-%m-%d %H:%M:%S')}"
     git commit -m "$commit_msg" || bashio::log.info "No changes to commit."
