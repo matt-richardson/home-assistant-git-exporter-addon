@@ -41,6 +41,7 @@ function setup_git {
     fi
     cd "$local_repository"
 
+    [ -n "$ssl_verify" ] && git config http.sslVerify "$ssl_verify"
     git remote set-url origin "$fullurl"
     git fetch origin || true
     git checkout "$branch" 2>/dev/null || git checkout -b "$branch"
