@@ -18,23 +18,31 @@ function setup_git {
     branch=$(bashio::config 'repository.branch_name')
     ssl_verify=$(bashio::config 'repository.ssl_verification')
 
-    # URL encode password unless it's a GitHub token
-    if [[ "$password" != ghp_* ]] && [[ "$password" != github_pat_* ]]; then
-        password=$(GIT_EXPORT_PASSWORD="$password" python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['GIT_EXPORT_PASSWORD']))")
-    fi
+    # Write credentials to a git credential-store file (chmod 600).
+    # This keeps credentials out of the process list and out of .git/config.
+    local encoded_password
+    encoded_password=$(GIT_EXPORT_PASSWORD="$password" python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['GIT_EXPORT_PASSWORD'], safe=''))")
+    local hostname="${repository##*https://}"; hostname="${hostname%%/*}"
+    local creds_file='/data/.git-credentials'
+    printf 'https://%s:%s@%s\n' "$username" "$encoded_password" "$hostname" > "$creds_file"
+    chmod 600 "$creds_file"
+    export GIT_CONFIG_COUNT=1
+    export GIT_CONFIG_KEY_0="credential.helper"
+    export GIT_CONFIG_VALUE_0="store --file $creds_file"
 
-    fullurl="https://${username}:${password}@${repository##*https://}"
+    # Use a plain URL with no embedded credentials
+    local plainurl="https://${repository##*https://}"
 
     [ ! -d "$local_repository" ] && mkdir -p "$local_repository"
 
     if [ ! -d "$local_repository/.git" ]; then
         if [ -z "$(ls -A "$local_repository" 2>/dev/null)" ]; then
             bashio::log.info 'Cloning repository into empty folder...'
-            git clone "$fullurl" "$local_repository"
+            git clone "$plainurl" "$local_repository"
         else
             bashio::log.info 'Non-empty folder exists, initializing git...'
             git -C "$local_repository" init
-            git -C "$local_repository" remote add origin "$fullurl" || true
+            git -C "$local_repository" remote add origin "$plainurl" || true
         fi
     else
         bashio::log.info 'Using existing Git repository.'
@@ -42,7 +50,7 @@ function setup_git {
     cd "$local_repository"
 
     [ -n "$ssl_verify" ] && git config http.sslVerify "$ssl_verify"
-    git remote set-url origin "$fullurl"
+    git remote set-url origin "$plainurl"
     git fetch origin || bashio::log.warning "Git fetch failed. Continuing with local state - push may fail."
     git checkout "$branch" 2>/dev/null || git checkout -b "$branch"
 
