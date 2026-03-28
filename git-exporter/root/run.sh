@@ -33,14 +33,13 @@ function setup_git {
             git clone "$fullurl" "$local_repository"
         else
             bashio::log.info 'Non-empty folder exists, initializing git...'
-            cd "$local_repository"
-            git init
-            git remote add origin "$fullurl" || true
+            git -C "$local_repository" init
+            git -C "$local_repository" remote add origin "$fullurl" || true
         fi
     else
-        cd "$local_repository"
         bashio::log.info 'Using existing Git repository.'
     fi
+    cd "$local_repository"
 
     git remote set-url origin "$fullurl"
     git fetch origin || true
