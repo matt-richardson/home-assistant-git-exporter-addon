@@ -139,6 +139,7 @@ function export_lovelace {
     find /config/.storage -name "lovelace*" -printf '%f\n' | xargs -I % cp /config/.storage/% /tmp/lovelace/%.json || true
     /utils/jsonToYaml.py '/tmp/lovelace/' 'data'
     rsync -av --compress --delete --checksum --prune-empty-dirs -q --include='*.yaml' --exclude='*' /tmp/lovelace/ "${local_repository}/lovelace"
+    rm -rf '/tmp/lovelace'
     chmod 644 -R "${local_repository}/lovelace"
 }
 
