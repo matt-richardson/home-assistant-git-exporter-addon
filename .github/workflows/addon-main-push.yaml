@@ -7,8 +7,14 @@ on:
       - main
 
 jobs:
-  workflows:
-    uses: Poeschl-HomeAssistant-Addons/workflows/.github/workflows/release-drafter.yaml@main
+  draft-release:
+    name: ✏️ Draft release
+    runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: read
+    steps:
+      - name: 🚀 Run Release Drafter
+        uses: release-drafter/release-drafter@v7.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

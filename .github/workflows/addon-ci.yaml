@@ -12,6 +12,159 @@ on:
       - synchronize
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  workflows:
-    uses: Poeschl-HomeAssistant-Addons/workflows/.github/workflows/addon-ci.yaml@main
+  information:
+    name: ℹ️ Gather addon information
+    runs-on: ubuntu-latest
+    outputs:
+      slug: ${{ steps.information.outputs.slug }}
+      addon-folder: ${{ steps.information.outputs.target }}
+      architectures: ${{ steps.information.outputs.architectures }}
+      build-file: ${{ steps.information.outputs.build }}
+      version: ${{ steps.information.outputs.version }}
+      name: ${{ steps.information.outputs.name }}
+      description: ${{ steps.information.outputs.description }}
+    steps:
+      - name: ↩️ Checkout
+        uses: actions/checkout@v4
+
+      - name: ℹ️ Gather addon info
+        id: information
+        uses: frenck/action-addon-information@v1
+
+  lint-addon:
+    name: 🔎 Home Assistant Addon Linter
+    runs-on: ubuntu-latest
+    needs: information
+    steps:
+      - name: ↩️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🚀 Run Home Assistant Add-on Lint
+        uses: frenck/action-addon-linter@v2
+        with:
+          community: true
+          path: "./${{ needs.information.outputs.addon-folder }}"
+
+  lint-hadolint:
+    name: 🔎 Hadolint
+    runs-on: ubuntu-latest
+    needs: information
+    steps:
+      - name: ↩️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🚀 Run hadolint
+        uses: hadolint/hadolint-action@v3.3.0
+        with:
+          dockerfile: "./${{ needs.information.outputs.addon-folder }}/Dockerfile"
+
+  lint-shellcheck:
+    name: 🔎 ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: ↩️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🚀 Run ShellCheck
+        uses: ludeeus/action-shellcheck@2.0.0
+        env:
+          SHELLCHECK_OPTS: -s bash
+
+  lint-markdown:
+    name: 🔎 MarkdownLint
+    runs-on: ubuntu-latest
+    steps:
+      - name: ↩️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🚀 Run markdownlint
+        uses: nosborn/github-action-markdown-cli@v3.5.0
+        with:
+          files: .
+
+  lint-yaml:
+    name: 🔎 YamlLint
+    runs-on: ubuntu-latest
+    steps:
+      - name: ↩️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🚀 Run yamllint
+        uses: ibiqlik/action-yamllint@v3.1.1
+
+  test-image-build:
+    name: ✔️ Verify image build ${{ matrix.architecture }}
+    runs-on: ubuntu-24.04
+    needs: information
+    strategy:
+      matrix:
+        architecture: ${{ fromJson(needs.information.outputs.architectures) }}
+      fail-fast: false
+    steps:
+      - name: ↩️ Checkout
+        uses: actions/checkout@v4
+
+      - name: ℹ️ Generate addon meta info
+        id: addon-meta
+        shell: bash
+        run: |
+          from=$(yq --no-colors eval ".build_from.${{ matrix.architecture }}" "${{ needs.information.outputs.build-file }}")
+          echo "from=${from}" >> "$GITHUB_OUTPUT"
+
+          if [[ "${{ matrix.architecture }}" = "amd64" ]]; then
+            echo "platform=linux/amd64" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ matrix.architecture }}" = "i386" ]]; then
+            echo "platform=linux/386" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ matrix.architecture }}" = "armhf" ]]; then
+            echo "platform=linux/arm/v6" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ matrix.architecture }}" = "armv7" ]]; then
+            echo "platform=linux/arm/v7" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ matrix.architecture }}" = "aarch64" ]]; then
+            echo "platform=linux/arm64/v8" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error ::Could not determine platform for architecture ${{ matrix.architecture }}"
+            exit 1
+          fi
+
+      - name: ℹ️ Generate OCI meta info
+        id: image-meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ needs.information.outputs.slug }}
+          tags: "dev-${{ matrix.architecture }}"
+
+      - name: 🏗️ Install qemu for multi-platform builds
+        run: sudo podman run --rm --privileged docker.io/multiarch/qemu-user-static --reset -p yes
+
+      - name: 🏗️ Pull base image
+        run: podman pull ${{ steps.addon-meta.outputs.from }}
+
+      - name: 🚀 Build image
+        id: build-image
+        uses: redhat-actions/buildah-build@v2
+        with:
+          containerfiles: "./${{ needs.information.outputs.addon-folder }}/Dockerfile"
+          context: "./${{ needs.information.outputs.addon-folder }}"
+          image: ${{ steps.image-meta.outputs.images }}
+          tags: ${{ steps.image-meta.outputs.tags }}
+          platforms: ${{ steps.addon-meta.outputs.platform }}
+          build-args: |
+            BUILD_FROM=${{ steps.addon-meta.outputs.from }}
+            BUILD_ARCH=${{ matrix.architecture }}
+            BUILD_VERSION=${{ needs.information.outputs.version }}
+          layers: false
+
+      - name: 🚚 Push image to docker daemon
+        run: podman push ${{ steps.build-image.outputs.image-with-tag }} docker-daemon:${{ steps.build-image.outputs.image-with-tag }}
+
+      - name: 🚀 Execute dive
+        uses: MaxymVlasov/dive-action@v1.6.0
+        with:
+          image: "${{ steps.build-image.outputs.image-with-tag }}"
+          config-file: ${{ github.workspace }}/.dive-ci.yaml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
