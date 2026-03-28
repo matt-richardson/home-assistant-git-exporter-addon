@@ -5,12 +5,11 @@ RUN apk add --no-cache \
 		git \
 		make
 
-# hadolint ignore=DL3003
 # git-secrets 1.3.0 — pinned to commit SHA to prevent tag tampering
-ENV GIT_SECRET_SHA ad82d68ee924906a0401dfd48de5057731a9bc84
+ENV GIT_SECRET_SHA=ad82d68ee924906a0401dfd48de5057731a9bc84
+WORKDIR /git-secrets
 RUN git config --global advice.detachedHead false && \
-    git init /git-secrets && \
-    cd /git-secrets && \
+    git init . && \
     git remote add origin https://github.com/awslabs/git-secrets.git && \
     git fetch --depth=1 origin ${GIT_SECRET_SHA} && \
     git checkout FETCH_HEAD && \

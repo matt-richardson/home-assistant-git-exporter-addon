@@ -142,12 +142,12 @@ jobs:
         run: sudo podman run --rm --privileged docker.io/multiarch/qemu-user-static --reset -p yes
 
       - name: 🏗️ Pull base image
-        run: podman pull ${{ steps.addon-meta.outputs.from }}
+        run: podman pull --platform "${{ steps.addon-meta.outputs.platform }}" "${{ steps.addon-meta.outputs.from }}"
 
       - name: 🚀 Build image
         id: build-image
         run: |
-          image="${{ steps.image-meta.outputs.images }}:${{ steps.image-meta.outputs.tags }}"
+          image="${{ steps.image-meta.outputs.tags }}"
           podman build \
             --file "./${{ needs.information.outputs.addon-folder }}/Dockerfile" \
             --platform "${{ steps.addon-meta.outputs.platform }}" \
