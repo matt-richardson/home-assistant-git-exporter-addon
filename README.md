@@ -18,21 +18,14 @@ This addon allows you to safely version your setup and optionally share it in pu
 
 ## Improvements over [seb5594's original](https://github.com/seb5594/Home-Assistant-git-exporter-Addon)
 
-* Git credentials are stored in a `chmod 600` credentials file rather than embedded in the remote URL, keeping them out of `.git/config` and the process list.
-* URL encoding of credentials via Python, so special characters in usernames/passwords no longer break authentication.
-* `{DATE}` placeholder in commit messages is replaced with the current timestamp.
-* IP address redaction (`check.redact_ips`) replaces IPv4 addresses with `x.x.x.x` before committing.
-* A `.gitallowed` file in the root of your config repository can be used to allowlist false positives from the secrets and IP checks.
-* Persistent HA notifications are sent when the export fails (e.g. secrets detected, push failed).
-* File permissions are normalised before committing (directories 755, files 644, `.sh` scripts 755), preventing spurious mode-change commits.
-* `git config core.fileMode false` prevents false positives caused by executable bits on the HA filesystem.
-* Rsync uses `--checksum` instead of timestamps for change detection, avoiding false positives from mtime differences.
-* Rsync respects the `exclude` list from addon configuration and automatically removes deleted or excluded files from the repository.
-* `.gitignore` files in the source directories are respected by rsync during export.
-* Lovelace storage files are converted from JSON to YAML before committing for better readability and diffs.
-* Secrets in `secrets.yaml` and `esphome/secrets.yaml` are redacted (values replaced with `""`) before committing.
-* Addon configs export includes all addon config directories from `/addon_configs`.
-* Node-RED credentials file (`flows_cred.json`) is excluded from export.
-* `dry_run` mode shows git status without committing or pushing.
-* Multi-architecture support (amd64, aarch64).
-* CI pipeline with shellcheck, hadolint, yamllint, markdownlint, and image build verification.
+* **Secure credential handling**: credentials are stored in a `chmod 600` file rather than embedded in the remote URL, keeping them out of `.git/config` and the process list. Username is also URL-encoded (upstream only encoded passwords, and only for non-GitHub tokens).
+* **IP address redaction**: new `check.redact_ips` option replaces IPv4 addresses with `x.x.x.x` before committing, so internal addresses are never exposed in the repository.
+* **HA failure notifications**: persistent notifications are sent to Home Assistant when the export fails (e.g. secrets detected, push failed, clone failed).
+* **Fixed `.git` permission corruption**: upstream's `cleanup_repo_files` ran `chmod -R 644` on the entire repository including `.git`, corrupting git's internal file permissions. This fork excludes `.git` from permission normalisation.
+* **Fixed false-positive change detection**: `core.fileMode false` prevents spurious changes from executable bits on the HA filesystem; `--no-perms` on rsync prevents permission changes being copied; `git update-index --refresh` updates the stat cache before diffing.
+* **Per-section change logging**: each export section logs how many files were modified or deleted, making it easier to see what changed.
+* **Pull before exports**: `pull_before_push` now pulls before running exports, so change detection compares against the already-pulled index.
+* **Secrets check runs after staging**: upstream ran `check_secrets` before `git add`, meaning it scanned unredacted working tree files. This fork stages first, then scans, and resets git-secrets patterns between runs to avoid stale state.
+* **`.gitallowed` support**: false positives from the secrets/IP check can be allowlisted with a `.gitallowed` file in the root of your config repository.
+* **Safe addon name handling**: addon slugs containing special characters are sanitised before use as filenames.
+* **Improved error handling**: git clone failures, push failures, and other errors surface clear log messages and HA notifications rather than silently failing.
