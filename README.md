@@ -18,6 +18,7 @@ This addon allows you to safely version your setup and optionally share it in pu
 
 ## Improvements over [seb5594's original](https://github.com/seb5594/Home-Assistant-git-exporter-Addon)
 
+* **Much faster exports**: rsync uses `--filter=':- .gitignore'` to respect `.gitignore` rules during the sync, so large excluded directories (e.g. `node_modules`, build artifacts) are skipped entirely rather than transferred and then discarded. Upstream copies everything and relies solely on the static `exclude` list.
 * **Secure credential handling**: credentials are stored in a `chmod 600` file rather than embedded in the remote URL, keeping them out of `.git/config` and the process list. Username is also URL-encoded (upstream only encoded passwords, and only for non-GitHub tokens).
 * **IP address redaction**: new `check.redact_ips` option replaces IPv4 addresses with `x.x.x.x` before committing, so internal addresses are never exposed in the repository.
 * **HA failure notifications**: persistent notifications are sent to Home Assistant when the export fails (e.g. secrets detected, push failed, clone failed).
