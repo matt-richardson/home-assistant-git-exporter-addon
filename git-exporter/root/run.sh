@@ -182,14 +182,20 @@ function log_git_changes {
 }
 
 function rsync_with_stats {
-    local label="$1" dest="${*: -1}"; shift
-    rsync "$@" > /dev/null
-    # Ensure any copied .gitignore ends with a newline to match git's text normalisation,
-    # preventing the file from showing as perpetually modified.
-    find "$dest" -name '.gitignore' -not -path '*/.git/*' 2>/dev/null | while IFS= read -r f; do
-        [ -n "$(tail -c1 "$f")" ] && printf '\n' >> "$f"
-    done
-    log_git_changes "$label" "$dest"
+    local label="$1"; shift
+    local rsync_output transferred deleted t_count d_count
+    rsync_output=$(rsync --itemize-changes "$@")
+    transferred=$(printf '%s\n' "$rsync_output" | grep '^>f' | awk '{print $2}')
+    deleted=$(printf '%s\n' "$rsync_output" | grep '^\*deleting' | awk '{print $2}')
+    t_count=$([ -n "$transferred" ] && printf '%s\n' "$transferred" | wc -l | tr -d ' ' || echo 0)
+    d_count=$([ -n "$deleted" ] && printf '%s\n' "$deleted" | wc -l | tr -d ' ' || echo 0)
+    bashio::log.info "${label}: ${t_count} modified, ${d_count} deleted."
+    if [ -n "$transferred" ]; then
+        while IFS= read -r f; do bashio::log.info "  ${f}"; done <<< "$transferred"
+    fi
+    if [ -n "$deleted" ]; then
+        while IFS= read -r f; do bashio::log.info "  ${f} (deleted)"; done <<< "$deleted"
+    fi
 }
 
 function export_ha_config {
