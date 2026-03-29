@@ -182,20 +182,9 @@ function log_git_changes {
 }
 
 function rsync_with_stats {
-    local label="$1"; shift
-    local rsync_output transferred deleted t_count d_count
-    rsync_output=$(rsync --itemize-changes "$@")
-    transferred=$(printf '%s\n' "$rsync_output" | grep '^>f' | awk '{print $2}')
-    deleted=$(printf '%s\n' "$rsync_output" | grep '^\*deleting' | awk '{print $2}')
-    t_count=$([ -n "$transferred" ] && printf '%s\n' "$transferred" | wc -l | tr -d ' ' || echo 0)
-    d_count=$([ -n "$deleted" ] && printf '%s\n' "$deleted" | wc -l | tr -d ' ' || echo 0)
-    bashio::log.info "${label}: ${t_count} modified, ${d_count} deleted."
-    if [ -n "$transferred" ]; then
-        while IFS= read -r f; do bashio::log.info "  ${f}"; done <<< "$transferred"
-    fi
-    if [ -n "$deleted" ]; then
-        while IFS= read -r f; do bashio::log.info "  ${f} (deleted)"; done <<< "$deleted"
-    fi
+    local label="$1" dest="${*: -1}"; shift
+    rsync "$@" > /dev/null
+    log_git_changes "$label" "$dest"
 }
 
 function export_ha_config {
@@ -339,6 +328,12 @@ function run_if_enabled {
 bashio::log.info 'Starting export...'
 setup_git
 
+if [ "$(bashio::config 'repository.pull_before_push')" == 'true' ]; then
+    bashio::log.info 'Pulling latest changes...'
+    git pull --ff-only --quiet origin "$branch" \
+        || bashio::log.warning "Pull failed (not a fast-forward) - push may fail if remote has diverged."
+fi
+
 if [ -f /config/.gitignore ] && [ ! -f "${local_repository}/config/.gitignore" ]; then
     bashio::log.info "Copying .gitignore to repository before first export..."
     mkdir -p "${local_repository}/config"
@@ -358,11 +353,6 @@ if [ "$(bashio::config 'dry_run')" == 'true' ]; then
 else
     [ "$(bashio::config 'check.redact_ips')" == 'true' ] && redact_ips
     cleanup_repo_files
-    if [ "$(bashio::config 'repository.pull_before_push')" == 'true' ]; then
-        bashio::log.info 'Pulling latest changes...'
-        git pull --ff-only --quiet origin "$branch" \
-            || bashio::log.warning "Pull failed (not a fast-forward) - push may fail if remote has diverged."
-    fi
 
     git add .
     changed=$(git diff --cached --stat | tail -1)
