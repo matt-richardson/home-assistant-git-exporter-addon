@@ -1,7 +1,7 @@
 name: Home Assistant Git Exporter
 version: 0.1.20
 slug: git-exporter
-description: Export all of your Home Assistant configuration to a git repository of your choice
+description: Export your Home Assistant configuration to a git repository
 url: https://github.com/matt-richardson/home-assistant-git-exporter-addon
 arch:
   - aarch64
