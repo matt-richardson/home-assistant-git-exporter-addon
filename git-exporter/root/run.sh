@@ -372,5 +372,4 @@ else
     fi
 fi
 
-[ -n "$(bashio::addon.slug)" ] && bashio::addon.stop || true
 exit 0
