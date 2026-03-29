@@ -184,6 +184,7 @@ function log_git_changes {
 function rsync_with_stats {
     local label="$1" dest="${*: -1}"; shift
     rsync --no-perms "$@" > /dev/null
+    git update-index -q --refresh 2>/dev/null || true
     log_git_changes "$label" "$dest"
 }
 
