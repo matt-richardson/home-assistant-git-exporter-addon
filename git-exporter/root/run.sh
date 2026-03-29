@@ -90,6 +90,7 @@ print(netloc)
 
     git config user.name "$username"
     git config user.email "${commiter_mail:-git.exporter@home-assistant}"
+    git config core.fileMode false
 }
 
 # ----------------------------
