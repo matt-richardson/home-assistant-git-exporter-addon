@@ -184,6 +184,11 @@ function log_git_changes {
 function rsync_with_stats {
     local label="$1" dest="${*: -1}"; shift
     rsync "$@" > /dev/null
+    # Ensure any copied .gitignore ends with a newline to match git's text normalisation,
+    # preventing the file from showing as perpetually modified.
+    find "$dest" -name '.gitignore' -not -path '*/.git/*' 2>/dev/null | while IFS= read -r f; do
+        [ -n "$(tail -c1 "$f")" ] && printf '\n' >> "$f"
+    done
     log_git_changes "$label" "$dest"
 }
 
