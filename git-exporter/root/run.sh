@@ -173,8 +173,12 @@ function log_git_changes {
     mod_count=$([ -n "$modified" ] && echo "$modified" | wc -l | tr -d ' ' || echo 0)
     del_count=$([ -n "$deleted" ] && echo "$deleted" | wc -l | tr -d ' ' || echo 0)
     bashio::log.info "${label}: ${mod_count} modified, ${del_count} deleted."
-    [ -n "$modified" ] && while IFS= read -r f; do bashio::log.info "  ${f}"; done <<< "$modified"
-    [ -n "$deleted" ] && while IFS= read -r f; do bashio::log.info "  ${f} (deleted)"; done <<< "$deleted"
+    if [ -n "$modified" ]; then
+        while IFS= read -r f; do bashio::log.info "  ${f}"; done <<< "$modified"
+    fi
+    if [ -n "$deleted" ]; then
+        while IFS= read -r f; do bashio::log.info "  ${f} (deleted)"; done <<< "$deleted"
+    fi
 }
 
 function rsync_with_stats {
