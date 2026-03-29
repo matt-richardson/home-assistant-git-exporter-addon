@@ -174,7 +174,10 @@ function log_git_changes {
     del_count=$([ -n "$deleted" ] && echo "$deleted" | wc -l | tr -d ' ' || echo 0)
     bashio::log.info "${label}: ${mod_count} modified, ${del_count} deleted."
     if [ -n "$modified" ]; then
-        while IFS= read -r f; do bashio::log.info "  ${f}"; done <<< "$modified"
+        while IFS= read -r f; do
+            bashio::log.info "  ${f}"
+            git diff -- "$f" | while IFS= read -r line; do bashio::log.info "    ${line}"; done
+        done <<< "$modified"
     fi
     if [ -n "$deleted" ]; then
         while IFS= read -r f; do bashio::log.info "  ${f} (deleted)"; done <<< "$deleted"
